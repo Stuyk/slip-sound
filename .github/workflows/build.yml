@@ -48,9 +48,7 @@ jobs:
         run: bun run build
 
       - name: Package Application with electron-builder
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: bun run electron-builder ${{ matrix.builder-flags }}
+        run: bun run electron-builder ${{ matrix.builder-flags }} --publish never
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
