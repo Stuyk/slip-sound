@@ -12,6 +12,10 @@ Most sample organizers are bloated nightmares or require cloud accounts and subs
 
 Slip Sound is fast, local, and free. No accounts, no subscriptions, and no file caps. Just your sounds.
 
+<p align="center">
+  <img src="screenshots/01-library-browse.png" alt="Browsing a sound library" width="800" />
+</p>
+
 ## Core Philosophy
 
 Every folder you open gets its own SQLite database, saved right at that folder's root. Index once, then just open it again later, instant. Reindex only when you've actually added or changed files. No central catalog, no hidden app-data blob, the index travels with the folder.
@@ -37,6 +41,19 @@ Every folder you open gets its own SQLite database, saved right at that folder's
 - **Remembers Where You Left Off:** Reopens your last library automatically.
 - **Keyboard-Driven:** Full mouse-free navigation.
 - **MCP Server (opt-in):** Let AI tools like Claude Desktop or Cursor search, tag, and export your library. Off by default, toggle it in Settings. See [MCP Server](#mcp-server).
+
+<p align="center">
+  <img src="screenshots/02-waveform-slicing.png" alt="Slicing a waveform region" width="800" />
+</p>
+<p align="center">
+  <img src="screenshots/03-instant-search.png" alt="Instant search filtering" width="800" />
+</p>
+<p align="center">
+  <img src="screenshots/04-category-browsing.png" alt="Browsing by category" width="800" />
+</p>
+<p align="center">
+  <img src="screenshots/05-batch-exporter.png" alt="Batch exporter" width="800" />
+</p>
 
 ## Quick Start
 
@@ -65,6 +82,10 @@ Point it at a sample folder (`Ctrl+O`). It indexes automatically and caches loca
 | `Ctrl` + `E` | Export selection / region |
 | `Alt` + `A` | Toggle auto-play |
 | `?` | Interactive help guide |
+
+<p align="center">
+  <img src="screenshots/06-shortcuts-guide.png" alt="Keyboard shortcuts guide" width="800" />
+</p>
 
 ## MCP Server
 
