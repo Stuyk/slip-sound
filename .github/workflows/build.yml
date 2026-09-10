@@ -47,6 +47,11 @@ jobs:
       - name: Build Application with electron-vite
         run: bun run build
 
+      - name: Exclude dist from Windows Defender
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: Add-MpPreference -ExclusionPath "${{ github.workspace }}\dist"
+
       - name: Package Application with electron-builder
         run: bun run electron-builder ${{ matrix.builder-flags }} --publish never
 

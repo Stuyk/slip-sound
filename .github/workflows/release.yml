@@ -10,8 +10,8 @@ permissions:
   contents: write
 
 jobs:
-  release:
-    name: Build & Release (${{ matrix.os }})
+  build:
+    name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -58,6 +58,11 @@ jobs:
       - name: Build Application
         run: bun run build
 
+      - name: Exclude dist from Windows Defender
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: Add-MpPreference -ExclusionPath "${{ github.workspace }}\dist"
+
       - name: Package with electron-builder
         run: bun run electron-builder ${{ matrix.builder-flags }} --publish never
 
@@ -74,9 +79,39 @@ jobs:
           sha256sum "${files[@]}" > "SHA256SUMS-${{ matrix.platform }}.txt"
           cat "SHA256SUMS-${{ matrix.platform }}.txt"
 
+      - name: Upload release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-assets-${{ matrix.platform }}
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.tar.gz
+            dist/*-Setup.exe
+            dist/*-Portable.exe
+            dist/latest*.yml
+            dist/SHA256SUMS-*.txt
+          if-no-files-found: error
+          retention-days: 1
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all release assets
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-assets-*
+          path: dist
+          merge-multiple: true
+
+      - name: List downloaded assets
+        run: ls -la dist
+
       - name: Publish Release Assets to GitHub
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           draft: true
           prerelease: false
