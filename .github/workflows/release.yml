@@ -73,7 +73,8 @@ jobs:
         shell: bash
         run: |
           shopt -s nullglob
-          for f in *.AppImage *.deb *.tar.gz *-Setup.exe *-Portable.exe; do
+          for f in *.AppImage *.deb *.tar.gz *.exe; do
+            [[ "$f" == *__uninstaller.exe ]] && continue
             size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")
             echo "$f: $size bytes"
             if [ "$size" -lt 1000000 ]; then
@@ -87,7 +88,11 @@ jobs:
         shell: bash
         run: |
           shopt -s nullglob
-          files=(*.AppImage *.deb *.tar.gz *-Setup.exe *-Portable.exe)
+          files=()
+          for f in *.AppImage *.deb *.tar.gz *.exe; do
+            [[ "$f" == *__uninstaller.exe ]] && continue
+            files+=("$f")
+          done
           if [ ${#files[@]} -eq 0 ]; then
             echo "No release artifacts found to checksum"
             exit 1
@@ -103,8 +108,8 @@ jobs:
             dist/*.AppImage
             dist/*.deb
             dist/*.tar.gz
-            dist/*-Setup.exe
-            dist/*-Portable.exe
+            dist/*.exe
+            !dist/*__uninstaller.exe
             dist/latest*.yml
             dist/SHA256SUMS-*.txt
           if-no-files-found: error
@@ -136,8 +141,8 @@ jobs:
             dist/*.AppImage
             dist/*.deb
             dist/*.tar.gz
-            dist/*-Setup.exe
-            dist/*-Portable.exe
+            dist/*.exe
+            !dist/*__uninstaller.exe
             dist/latest*.yml
             dist/SHA256SUMS-*.txt
         env:
