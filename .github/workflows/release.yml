@@ -64,7 +64,23 @@ jobs:
         run: Add-MpPreference -ExclusionPath "${{ github.workspace }}\dist"
 
       - name: Package with electron-builder
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
         run: bun run electron-builder ${{ matrix.builder-flags }} --publish never
+
+      - name: Sanity-check artifact sizes
+        working-directory: dist
+        shell: bash
+        run: |
+          shopt -s nullglob
+          for f in *.AppImage *.deb *.tar.gz *-Setup.exe *-Portable.exe; do
+            size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")
+            echo "$f: $size bytes"
+            if [ "$size" -lt 1000000 ]; then
+              echo "::error::$f is only $size bytes — build likely corrupted"
+              exit 1
+            fi
+          done
 
       - name: Generate SHA256 checksums
         working-directory: dist

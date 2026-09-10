@@ -53,6 +53,8 @@ jobs:
         run: Add-MpPreference -ExclusionPath "${{ github.workspace }}\dist"
 
       - name: Package Application with electron-builder
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: false
         run: bun run electron-builder ${{ matrix.builder-flags }} --publish never
 
       - name: Upload Build Artifacts
