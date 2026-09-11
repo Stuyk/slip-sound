@@ -1,15 +1,41 @@
-name: Release
+name: Build & Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  check-version:
+    name: Check package.json version
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      should_release: ${{ steps.check.outputs.should_release }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Determine if this version has already been released
+        id: check
+        run: |
+          VERSION="v$(node -p "require('./package.json').version")"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if gh release view "$VERSION" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release $VERSION already exists, skipping."
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
   build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -28,16 +54,6 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
-      - name: Verify tag matches package.json version
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          PKG_VERSION="v$(node -p "require('./package.json').version")"
-          TAG_VERSION="${GITHUB_REF#refs/tags/}"
-          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
-            echo "Tag $TAG_VERSION does not match package.json version $PKG_VERSION"
-            exit 1
-          fi
 
       - name: Setup Node.js 22
         uses: actions/setup-node@v4
@@ -67,6 +83,10 @@ jobs:
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: bun run electron-builder ${{ matrix.builder-flags }} --publish never
+
+      - name: List dist contents
+        shell: bash
+        run: ls -la dist
 
       - name: Sanity-check artifact sizes
         working-directory: dist
@@ -100,10 +120,10 @@ jobs:
           sha256sum "${files[@]}" > "SHA256SUMS-${{ matrix.platform }}.txt"
           cat "SHA256SUMS-${{ matrix.platform }}.txt"
 
-      - name: Upload release assets
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: release-assets-${{ matrix.platform }}
+          name: slip-sound-${{ matrix.platform }}-binaries
           path: |
             dist/*.AppImage
             dist/*.deb
@@ -113,18 +133,18 @@ jobs:
             dist/latest*.yml
             dist/SHA256SUMS-*.txt
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 14
 
   release:
     name: Publish GitHub Release
-    needs: build
+    needs: [check-version, build]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
+    if: needs.check-version.outputs.should_release == 'true'
     steps:
       - name: Download all release assets
         uses: actions/download-artifact@v4
         with:
-          pattern: release-assets-*
+          pattern: slip-sound-*-binaries
           path: dist
           merge-multiple: true
 
@@ -134,6 +154,8 @@ jobs:
       - name: Publish Release Assets to GitHub
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.check-version.outputs.version }}
+          target_commitish: ${{ github.sha }}
           draft: true
           prerelease: false
           generate_release_notes: true

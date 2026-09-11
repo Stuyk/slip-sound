@@ -121,7 +121,7 @@ sha256sum -c SHA256SUMS-linux.txt   # Linux
 certutil -hashfile slip-sound-Setup.exe SHA256   # Windows, compare against the .txt
 ```
 
-CI only publishes when the pushed tag (`vX.Y.Z`) matches `package.json`'s `version` field exactly, mismatched or stale tags fail the build before packaging.
+Releases are driven entirely by `package.json`'s `version` field, no manual tagging. Every push to `main` builds and checks whether `vX.Y.Z` already has a GitHub release; if not, it creates the tag and a draft release automatically. Bump the version to cut a new release.
 
 ## Building
 
