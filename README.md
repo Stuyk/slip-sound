@@ -12,7 +12,13 @@ Most sample organizers are bloated nightmares or require cloud accounts and subs
 
 Slip Sound is fast, local, and free. No accounts, no subscriptions, and no file caps. Just your sounds.
 
-**[slip-sound landing page &rarr;](https://stuyk.github.io/slip-sound/)** &middot; [Download latest release](https://github.com/Stuyk/slip-sound/releases)
+<p align="center">
+  <a href="https://github.com/Stuyk/slip-sound/releases">
+    <img src="https://img.shields.io/badge/Download-Slip%20Sound-7c9eff?style=for-the-badge" alt="Download Slip Sound" />
+  </a>
+  <br />
+  <sub><a href="https://stuyk.github.io/slip-sound/">Landing page</a></sub>
+</p>
 
 <p align="center">
   <img src="screenshots/01-library-browse.png" alt="Browsing a sound library" width="800" />
