@@ -138,3 +138,7 @@ Electron 39, Node 22 (`node:sqlite`), SolidJS, Tailwind CSS v4, electron-vite, f
 ## Alternative To
 
 A free, fast, local alternative to sample managers like Soundly, BaseHead, Soundminer, Resonic, AudioFinder, Sononym, and ADSR Sample Manager.
+
+## License
+
+GPL-3.0-or-later. See [LICENSE](LICENSE). Required by the bundled `ffmpeg-static` binary, which is built with `--enable-gpl`.
