@@ -71,7 +71,7 @@ export default function App() {
   const [selectedSubcategory, setSelectedSubcategory] = createSignal<string>('')
   const [results, setResults] = createSignal<SoundRow[]>([])
   const [selected, setSelected] = createSignal(0)
-  const [multiSelected, setMultiSelected] = createSignal<Set<number>>(new Set())
+  const [multiSelected, setMultiSelected] = createSignal<Map<string, SoundRow>>(new Map())
   const [reindexing, setReindexing] = createSignal(false)
   const [progress, setProgress] = createSignal<{ done: number; total: number } | null>(null)
   const [showHelp, setShowHelp] = createSignal(false)
@@ -235,8 +235,10 @@ export default function App() {
   })
 
   let searchSeq = 0
+  let selectAllSeq = 0
 
   async function runSearch(): Promise<void> {
+    selectAllSeq++
     if (!folder()) {
       setResults([])
       setMatchingCount(0)
@@ -252,7 +254,7 @@ export default function App() {
     setMatchingCount(total)
     setResults(rows)
     setSelected(0)
-    setMultiSelected(new Set<number>())
+    setMultiSelected(new Map())
     selectAnchor = 0
   }
 
@@ -334,18 +336,38 @@ export default function App() {
 
   function toggleMultiSelect(i: number): void {
     setMultiSelected((prev) => {
-      const next = new Set(prev)
-      if (next.has(i)) next.delete(i)
-      else next.add(i)
+      const next = new Map(prev)
+      const row = results()[i]
+      if (!row) return next
+      if (next.has(row.path)) next.delete(row.path)
+      else next.set(row.path, row)
       return next
     })
   }
 
   function selectRange(from: number, to: number): void {
-    const next = new Set<number>()
+    const next = new Map<string, SoundRow>()
     const [lo, hi] = from <= to ? [from, to] : [to, from]
-    for (let idx = lo; idx <= hi; idx++) next.add(idx)
+    for (let idx = lo; idx <= hi; idx++) {
+      const row = results()[idx]
+      if (row) next.set(row.path, row)
+    }
     setMultiSelected(next)
+  }
+
+  async function selectAllFiltered(): Promise<void> {
+    if (!folder()) return
+    const seq = ++selectAllSeq
+    const params = currentSearchParams()
+    const total = await window.api.count(params)
+    if (seq !== selectAllSeq) return
+    if (total === 0) {
+      setMultiSelected(new Map())
+      return
+    }
+    const rows = await window.api.search({ ...params, limit: total, offset: 0 })
+    if (seq !== selectAllSeq) return
+    setMultiSelected(new Map(rows.map((row) => [row.path, row])))
   }
 
   function onRowClick(i: number, e: MouseEvent): void {
@@ -360,14 +382,14 @@ export default function App() {
       selectAnchor = i
       return
     }
-    setMultiSelected(new Set<number>())
+    setMultiSelected(new Map())
     setSelected(i)
     selectAnchor = i
     if (autoPlay()) waveApi?.play()
   }
 
   function onRowDblClick(i: number, _e: MouseEvent): void {
-    setMultiSelected(new Set<number>())
+    setMultiSelected(new Map())
     setSelected(i)
     selectAnchor = i
     requestAnimationFrame(() => {
@@ -377,17 +399,14 @@ export default function App() {
 
   function onRowDragStart(i: number, e: DragEvent): void {
     e.preventDefault()
+    const row = results()[i]
     const multi = multiSelected()
-    const indices = multi.has(i) && multi.size > 0 ? [...multi] : [i]
-    const paths = indices.map((idx) => results()[idx]?.path).filter((p): p is string => !!p)
+    const paths = row && multi.has(row.path) && multi.size > 0 ? [...multi.keys()] : row ? [row.path] : []
     if (paths.length > 0) window.api.startDrag(paths)
   }
 
   function openExportForSelection(): void {
-    const rows = [...multiSelected()]
-      .sort((a, b) => a - b)
-      .map((idx) => results()[idx])
-      .filter((r): r is SoundRow => !!r)
+    const rows = [...multiSelected().values()]
     if (rows.length === 0) return
     setExportFiles(rows.map((r) => ({ sourcePath: r.path, filename: r.filename })))
     setExportModalOpen(true)
@@ -403,10 +422,7 @@ export default function App() {
   }
 
   function openCategoryModalForSelection(): void {
-    const rows = [...multiSelected()]
-      .sort((a, b) => a - b)
-      .map((idx) => results()[idx])
-      .filter((r): r is SoundRow => !!r)
+    const rows = [...multiSelected().values()]
     if (rows.length === 0) return
     setCategoryModalRows(rows)
   }
@@ -415,9 +431,18 @@ export default function App() {
     const rows = categoryModalRows()
     if (rows.length === 0) return
     const paths = new Set(rows.map((r) => r.path))
-    await Promise.all(rows.map((r) => window.api.setCategory(r.path, category, subcategory)))
+    await window.api.setCategories([...paths], category, subcategory)
     setResults((prev) =>
       prev.map((r) => (paths.has(r.path) ? { ...r, category, subcategory, confidence: 1, category_manual: true } : r))
+    )
+    setMultiSelected(
+      (prev) =>
+        new Map(
+          [...prev].map(([path, row]) => [
+            path,
+            paths.has(path) ? { ...row, category, subcategory, confidence: 1, category_manual: true } : row
+          ])
+        )
     )
     setCategoryModalRows([])
     await refreshFacets()
@@ -427,13 +452,31 @@ export default function App() {
     const rows = categoryModalRows()
     if (rows.length === 0) return
     const paths = new Set(rows.map((r) => r.path))
-    await Promise.all(rows.map((r) => window.api.clearCategory(r.path)))
+    await window.api.clearCategories([...paths])
     setResults((prev) =>
       prev.map((r) =>
         paths.has(r.path)
           ? { ...r, category: 'Uncategorized', subcategory: null, confidence: 0, matched_terms: [], category_manual: false }
           : r
       )
+    )
+    setMultiSelected(
+      (prev) =>
+        new Map(
+          [...prev].map(([path, row]) => [
+            path,
+            paths.has(path)
+              ? {
+                  ...row,
+                  category: 'Uncategorized',
+                  subcategory: null,
+                  confidence: 0,
+                  matched_terms: [],
+                  category_manual: false
+                }
+              : row
+          ])
+        )
     )
     setCategoryModalRows([])
     await refreshFacets()
@@ -516,6 +559,14 @@ export default function App() {
       return
     }
 
+    // Select every row matching the active filters, including rows that have
+    // not been loaded into the infinitely scrolling results list yet.
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a' && !isInput) {
+      e.preventDefault()
+      void selectAllFiltered()
+      return
+    }
+
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       setSelected((s) => Math.min(s + 1, results().length - 1))
@@ -561,8 +612,8 @@ export default function App() {
 
   const multiSelectTotalSize = (): number => {
     let sum = 0
-    for (const idx of multiSelected()) {
-      sum += results()[idx]?.filesize ?? 0
+    for (const row of multiSelected().values()) {
+      sum += row.filesize ?? 0
     }
     return sum
   }
@@ -877,7 +928,7 @@ export default function App() {
                     <TagPlusIcon size={13} />
                     <span>Set Category…</span>
                   </button>
-                  <button class="btn-flat btn-ghost" onClick={() => setMultiSelected(new Set())}>
+                  <button class="btn-flat btn-ghost" onClick={() => setMultiSelected(new Map())}>
                     Clear selection
                   </button>
                 </div>
@@ -986,7 +1037,7 @@ export default function App() {
                     class="sound-row"
                     classList={{
                       selected: i() === selected(),
-                      'multi-selected': multiSelected().has(i())
+                      'multi-selected': multiSelected().has(row.path)
                     }}
                     data-idx={i()}
                     draggable={true}

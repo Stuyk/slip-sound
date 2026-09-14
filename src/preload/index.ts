@@ -121,7 +121,10 @@ const api = {
   toggleFavorite: (path: string): Promise<boolean> => ipcRenderer.invoke('sounds:toggle-favorite', path),
   setCategory: (path: string, category: string, subcategory: string | null): Promise<void> =>
     ipcRenderer.invoke('sounds:set-category', path, category, subcategory),
+  setCategories: (paths: string[], category: string, subcategory: string | null): Promise<void> =>
+    ipcRenderer.invoke('sounds:set-categories', paths, category, subcategory),
   clearCategory: (path: string): Promise<void> => ipcRenderer.invoke('sounds:clear-category', path),
+  clearCategories: (paths: string[]): Promise<void> => ipcRenderer.invoke('sounds:clear-categories', paths),
   revealInFolder: (path: string): void => ipcRenderer.send('shell:reveal', path),
   audioUrl: (filePath: string): string => {
     // Normalize Windows backslashes to '/' before splitting into segments —
