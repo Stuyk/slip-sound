@@ -32,6 +32,7 @@ import {
   StarIcon,
   FolderIcon,
   TagPlusIcon,
+  TagXIcon,
   ChevronDownIcon,
   ChevronUpIcon,
   ChevronsUpDownIcon,
@@ -420,6 +421,39 @@ export default function App() {
     const rows = [...multiSelected().values()]
     if (rows.length === 0) return
     setCategoryModalRows(rows)
+  }
+
+  async function clearCategoryForSelection(): Promise<void> {
+    const rows = [...multiSelected().values()]
+    if (rows.length === 0) return
+    const paths = new Set(rows.map((r) => r.path))
+    await window.api.clearCategories([...paths])
+    setResults((prev) =>
+      prev.map((r) =>
+        paths.has(r.path)
+          ? { ...r, category: 'Uncategorized', subcategory: null, confidence: 0, matched_terms: [], category_manual: false }
+          : r
+      )
+    )
+    setMultiSelected(
+      (prev) =>
+        new Map(
+          [...prev].map(([path, row]) => [
+            path,
+            paths.has(path)
+              ? {
+                  ...row,
+                  category: 'Uncategorized',
+                  subcategory: null,
+                  confidence: 0,
+                  matched_terms: [],
+                  category_manual: false
+                }
+              : row
+          ])
+        )
+    )
+    await refreshFacets()
   }
 
   async function applyCategory(category: string, subcategory: string | null): Promise<void> {
@@ -915,16 +949,33 @@ export default function App() {
                   </span>
                 </div>
                 <div class="multi-select-actions">
-                  <button class="btn-flat btn-primary" onClick={openExportForSelection}>
-                    <DownloadIcon size={13} />
-                    <span>Export Selected…</span>
+                  <button
+                    class="btn-flat btn-primary btn-icon-only"
+                    title="Export Selected…"
+                    onClick={openExportForSelection}
+                  >
+                    <DownloadIcon size={18} />
                   </button>
-                  <button class="btn-flat btn-primary" onClick={openCategoryModalForSelection}>
-                    <TagPlusIcon size={13} />
-                    <span>Set Category…</span>
+                  <button
+                    class="btn-flat btn-primary btn-icon-only"
+                    title="Set Category…"
+                    onClick={openCategoryModalForSelection}
+                  >
+                    <TagPlusIcon size={18} />
                   </button>
-                  <button class="btn-flat btn-ghost" onClick={() => setMultiSelected(new Map())}>
-                    Clear selection
+                  <button
+                    class="btn-flat btn-primary btn-icon-only"
+                    title="Clear Category"
+                    onClick={clearCategoryForSelection}
+                  >
+                    <TagXIcon size={18} />
+                  </button>
+                  <button
+                    class="btn-flat btn-ghost btn-icon-only"
+                    title="Clear selection"
+                    onClick={() => setMultiSelected(new Map())}
+                  >
+                    <XIcon size={18} />
                   </button>
                 </div>
               </div>

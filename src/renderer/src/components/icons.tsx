@@ -825,24 +825,24 @@ export function StarIcon(props: IconProps & { filled?: boolean }): JSX.Element {
 
 export function TagPlusIcon(props: IconProps): JSX.Element {
   const s = () => props.size ?? defaultProps.size
-  const sw = () => props.strokeWidth ?? defaultProps.strokeWidth
   return (
-    <svg
-      width={s()}
-      height={s()}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width={sw()}
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      class={props.class}
-      style={props.style}
-    >
-      <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.42 0l3.592-3.592" />
-      <circle cx="7.5" cy="7.5" r="1.5" fill="currentColor" stroke="none" />
-      <path d="M16 15h6" />
-      <path d="M19 12v6" />
+    <svg width={s()} height={s()} viewBox="0 0 48 48" fill="none" class={props.class} style={props.style}>
+      <path
+        fill="currentColor"
+        d="M23.49 7.245A4.25 4.25 0 0 1 26.495 6h11.257a4.25 4.25 0 0 1 4.25 4.25v11.257a4.25 4.25 0 0 1-.452 1.909A12.94 12.94 0 0 0 34 21c-7.18 0-13 5.82-13 13c0 2.815.895 5.42 2.415 7.549a4.25 4.25 0 0 1-4.909-.796L7.25 29.495a4.25 4.25 0 0 1 0-6.01zM33.5 17a2.5 2.5 0 1 0 0-5a2.5 2.5 0 0 0 0 5M45 34c0 6.075-4.925 11-11 11s-11-4.925-11-11s4.925-11 11-11s11 4.925 11 11m-10-7a1 1 0 1 0-2 0v6h-6a1 1 0 1 0 0 2h6v6a1 1 0 1 0 2 0v-6h6a1 1 0 1 0 0-2h-6z"
+      />
+    </svg>
+  )
+}
+
+export function TagXIcon(props: IconProps): JSX.Element {
+  const s = () => props.size ?? defaultProps.size
+  return (
+    <svg width={s()} height={s()} viewBox="0 0 24 24" fill="none" class={props.class} style={props.style}>
+      <path
+        fill="currentColor"
+        d="M19.75 2A2.25 2.25 0 0 1 22 4.25v5.462a3.25 3.25 0 0 1-.952 2.298l-.026.026a6.5 6.5 0 0 0-9.028 8.92a3.256 3.256 0 0 1-4.043-.442L3.489 16.06a3.25 3.25 0 0 1-.004-4.596l8.5-8.51a3.25 3.25 0 0 1 2.3-.953zM17 5.502a1.5 1.5 0 1 0 0 3a1.5 1.5 0 0 0 0-3M23 17.5a5.5 5.5 0 1 1-11 0a5.5 5.5 0 0 1 11 0m-7.147-2.354a.5.5 0 0 0-.707.708l1.647 1.646l-1.647 1.646a.5.5 0 0 0 .707.708l1.647-1.647l1.646 1.647a.5.5 0 0 0 .707-.708L18.207 17.5l1.646-1.646a.5.5 0 0 0-.707-.708L17.5 16.793z"
+      />
     </svg>
   )
 }

@@ -11,6 +11,31 @@ permissions:
   contents: write
 
 jobs:
+  pr-check:
+    name: PR Build Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run Tests
+        run: bun run test
+
+      - name: Build Application
+        run: bun run build
+
   check-version:
     name: Check package.json version
     runs-on: ubuntu-latest
@@ -38,11 +63,13 @@ jobs:
 
   build:
     name: Build (${{ matrix.os }})
+    needs: check-version
+    if: needs.check-version.outputs.should_release == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
         include:
           - os: ubuntu-latest
             platform: linux
@@ -50,6 +77,9 @@ jobs:
           - os: windows-latest
             platform: windows
             builder-flags: --win
+          - os: macos-latest
+            platform: mac
+            builder-flags: --mac
 
     steps:
       - name: Check out repository
@@ -93,7 +123,7 @@ jobs:
         shell: bash
         run: |
           shopt -s nullglob
-          for f in *.AppImage *.deb *.tar.gz *.exe; do
+          for f in *.AppImage *.deb *.tar.gz *.exe *.dmg *.zip; do
             [[ "$f" == *__uninstaller.exe ]] && continue
             size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")
             echo "$f: $size bytes"
@@ -109,7 +139,7 @@ jobs:
         run: |
           shopt -s nullglob
           files=()
-          for f in *.AppImage *.deb *.tar.gz *.exe; do
+          for f in *.AppImage *.deb *.tar.gz *.exe *.dmg *.zip; do
             [[ "$f" == *__uninstaller.exe ]] && continue
             files+=("$f")
           done
@@ -129,6 +159,8 @@ jobs:
             dist/*.deb
             dist/*.tar.gz
             dist/*.exe
+            dist/*.dmg
+            dist/*.zip
             !dist/*__uninstaller.exe
             dist/latest*.yml
             dist/SHA256SUMS-*.txt
