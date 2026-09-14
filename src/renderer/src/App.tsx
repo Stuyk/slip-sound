@@ -6,6 +6,7 @@ import SettingsModal from './components/SettingsModal'
 import ExportModal, { ExportFile } from './components/ExportModal'
 import CategoryModal from './components/CategoryModal'
 import { CategorySidebar } from './components/CategorySidebar'
+import { fetchAllMatchingSounds } from './selection'
 import appIcon from '../assets/app-icon.png'
 import {
   FolderOpenIcon,
@@ -359,15 +360,9 @@ export default function App() {
     if (!folder()) return
     const seq = ++selectAllSeq
     const params = currentSearchParams()
-    const total = await window.api.count(params)
+    const rows = await fetchAllMatchingSounds(window.api, params)
     if (seq !== selectAllSeq) return
-    if (total === 0) {
-      setMultiSelected(new Map())
-      return
-    }
-    const rows = await window.api.search({ ...params, limit: total, offset: 0 })
-    if (seq !== selectAllSeq) return
-    setMultiSelected(new Map(rows.map((row) => [row.path, row])))
+    setMultiSelected(rows)
   }
 
   function onRowClick(i: number, e: MouseEvent): void {
