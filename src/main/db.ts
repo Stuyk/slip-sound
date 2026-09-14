@@ -331,6 +331,22 @@ export function setCategory(db: DatabaseSync, path: string, category: string, su
   ).run(category, subcategory, path)
 }
 
+export function setCategories(db: DatabaseSync, paths: string[], category: string, subcategory: string | null): void {
+  const stmt = db.prepare(
+    `UPDATE sounds
+     SET category = ?, subcategory = ?, confidence = 1, category_manual = 1
+     WHERE path = ?`
+  )
+  db.exec('BEGIN')
+  try {
+    for (const path of paths) stmt.run(category, subcategory, path)
+    db.exec('COMMIT')
+  } catch (error) {
+    db.exec('ROLLBACK')
+    throw error
+  }
+}
+
 // Reverts a sound to "Uncategorized" and clears the manual flag, so the next
 // reindex is free to auto-classify it again from its filename.
 export function clearCategory(db: DatabaseSync, path: string): void {
@@ -339,6 +355,22 @@ export function clearCategory(db: DatabaseSync, path: string): void {
      SET category = 'Uncategorized', subcategory = NULL, confidence = 0, matched_terms = NULL, category_manual = 0
      WHERE path = ?`
   ).run(path)
+}
+
+export function clearCategories(db: DatabaseSync, paths: string[]): void {
+  const stmt = db.prepare(
+    `UPDATE sounds
+     SET category = 'Uncategorized', subcategory = NULL, confidence = 0, matched_terms = NULL, category_manual = 0
+     WHERE path = ?`
+  )
+  db.exec('BEGIN')
+  try {
+    for (const path of paths) stmt.run(path)
+    db.exec('COMMIT')
+  } catch (error) {
+    db.exec('ROLLBACK')
+    throw error
+  }
 }
 
 export function searchSounds(db: DatabaseSync, params: SearchParams): SoundRow[] {

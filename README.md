@@ -83,6 +83,7 @@ Point it at a sample folder (`Ctrl+O`). It indexes automatically and caches loca
 | `Home` / `End` | Jump to top / bottom |
 | `Double Click` | Play immediately |
 | `Ctrl` + `Click` | Add/remove a sound from the multi-selection |
+| `Ctrl` + `A` | Select all sounds matching the current filters |
 | `Shift` + `Click` | Select every sound between the last click and this one |
 | `Ctrl` + `F` | Focus search |
 | `Ctrl` + `O` | Open folder |

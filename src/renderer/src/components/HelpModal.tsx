@@ -77,6 +77,13 @@ export default function HelpModal(props: { isOpen: boolean; onClose: () => void 
 
                   <div class="shortcut-row">
                     <div class="shortcut-keys">
+                      <kbd>Ctrl</kbd>+<kbd>A</kbd>
+                    </div>
+                    <span class="shortcut-action">Select all sounds matching the current filters</span>
+                  </div>
+
+                  <div class="shortcut-row">
+                    <div class="shortcut-keys">
                       <kbd>Ctrl</kbd>+<kbd>F</kbd>
                     </div>
                     <span class="shortcut-action">Instant focus and select search bar</span>

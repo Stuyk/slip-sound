@@ -14,7 +14,9 @@ import {
   getCategoryFacets,
   toggleFavorite,
   setCategory,
+  setCategories,
   clearCategory,
+  clearCategories,
   getSoundByPath,
   SearchParams
 } from './db'
@@ -241,9 +243,19 @@ app.whenReady().then(() => {
     setCategory(currentDb, path, category, subcategory)
   })
 
+  ipcMain.handle('sounds:set-categories', (_e, paths: string[], category: string, subcategory: string | null) => {
+    if (!currentDb) return
+    setCategories(currentDb, paths, category, subcategory)
+  })
+
   ipcMain.handle('sounds:clear-category', (_e, path: string) => {
     if (!currentDb) return
     clearCategory(currentDb, path)
+  })
+
+  ipcMain.handle('sounds:clear-categories', (_e, paths: string[]) => {
+    if (!currentDb) return
+    clearCategories(currentDb, paths)
   })
 
   ipcMain.on('shell:reveal', (_e, filePath: string) => {
