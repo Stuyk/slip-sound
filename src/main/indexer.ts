@@ -34,7 +34,8 @@ export interface ReindexResult {
 export function reindexFolder(
   db: DatabaseSync,
   folder: string,
-  onProgress?: (done: number, total: number) => void
+  onProgress?: (done: number, total: number) => void,
+  autoCategorizationEnabled = true
 ): ReindexResult {
   const start = Date.now()
   const files: string[] = []
@@ -45,7 +46,9 @@ export function reindexFolder(
     const filePath = files[i]
     const stat = statSync(filePath)
     const meta = readAudioMeta(filePath)
-    const classification = classifySound(filePath)
+    const classification = autoCategorizationEnabled
+      ? classifySound(filePath)
+      : { category: 'Uncategorized', subcategory: undefined, confidence: 0, matchedTerms: [] }
     rows.push({
       path: filePath,
       // path.basename handles both '/' and '\' correctly per-platform — a
