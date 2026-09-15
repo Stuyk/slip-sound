@@ -22,7 +22,14 @@ import {
 } from './db'
 import { reindexFolder } from './indexer'
 import { getRecentFolders, addRecentFolder, removeRecentFolder } from './recent'
-import { getLastExportFolder, setLastExportFolder, getMcpEnabled, setMcpEnabled } from './prefs'
+import {
+  getLastExportFolder,
+  setLastExportFolder,
+  getMcpEnabled,
+  setMcpEnabled,
+  getAutoCategorizationEnabled,
+  setAutoCategorizationEnabled
+} from './prefs'
 import { exportRegion, generateExportFilename, ExportFormat, BitDepth, NamingMode } from './export'
 import { existsSync } from 'fs'
 import { startMcpServer, McpServerHandle, McpDeps } from './mcp/server'
@@ -46,9 +53,12 @@ function runReindex(sender: WebContents): { fileCount: number; durationMs: numbe
   if (!currentDb || !currentFolder) throw new Error('No folder open')
   sender.send('sounds:reindex-start')
   try {
-    return reindexFolder(currentDb, currentFolder, (done, total) => {
-      sender.send('sounds:reindex-progress', { done, total })
-    })
+    return reindexFolder(
+      currentDb,
+      currentFolder,
+      (done, total) => sender.send('sounds:reindex-progress', { done, total }),
+      getAutoCategorizationEnabled()
+    )
   } finally {
     sender.send('sounds:reindex-end')
   }
@@ -95,7 +105,7 @@ const mcpDeps: McpDeps = {
   },
   reindex: async () => {
     if (!currentDb || !currentFolder) throw new Error('No folder open')
-    return reindexFolder(currentDb, currentFolder)
+    return reindexFolder(currentDb, currentFolder, undefined, getAutoCategorizationEnabled())
   }
 }
 
@@ -376,6 +386,13 @@ app.whenReady().then(() => {
       await disableMcp()
     }
     return getMcpStatus()
+  })
+
+  ipcMain.handle('settings:get-auto-categorization', () => getAutoCategorizationEnabled())
+
+  ipcMain.handle('settings:set-auto-categorization', (_e, enabled: boolean) => {
+    setAutoCategorizationEnabled(enabled)
+    return getAutoCategorizationEnabled()
   })
 
   createWindow()
