@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.1.1
+
+### Added
+
+- Ability to disable auto-categorization in settings.
+
 ## v1.1.0
 
 ### Added
