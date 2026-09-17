@@ -157,7 +157,11 @@ const api = {
   }): Promise<string> => ipcRenderer.invoke('sounds:export-temp', params),
   startDrag: (filePaths: string[]): void => ipcRenderer.send('drag:start', filePaths),
   getMcpStatus: (): Promise<McpStatus> => ipcRenderer.invoke('mcp:get-status'),
-  setMcpEnabled: (enabled: boolean): Promise<McpStatus> => ipcRenderer.invoke('mcp:set-enabled', enabled)
+  setMcpEnabled: (enabled: boolean): Promise<McpStatus> => ipcRenderer.invoke('mcp:set-enabled', enabled),
+  getAutoCategorizationEnabled: (): Promise<boolean> =>
+    ipcRenderer.invoke('settings:get-auto-categorization'),
+  setAutoCategorizationEnabled: (enabled: boolean): Promise<boolean> =>
+    ipcRenderer.invoke('settings:set-auto-categorization', enabled)
 }
 
 contextBridge.exposeInMainWorld('electron', electronAPI)

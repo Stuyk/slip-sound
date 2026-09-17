@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync, existsSync } from 'fs'
 interface Prefs {
   lastExportFolder?: string
   mcpEnabled?: boolean
+  autoCategorizationEnabled?: boolean
 }
 
 function storePath(): string {
@@ -45,5 +46,16 @@ export function getMcpEnabled(): boolean {
 export function setMcpEnabled(enabled: boolean): void {
   const prefs = load()
   prefs.mcpEnabled = enabled
+  save(prefs)
+}
+
+// Keep the existing indexing behavior unless the user explicitly opts out.
+export function getAutoCategorizationEnabled(): boolean {
+  return load().autoCategorizationEnabled !== false
+}
+
+export function setAutoCategorizationEnabled(enabled: boolean): void {
+  const prefs = load()
+  prefs.autoCategorizationEnabled = enabled
   save(prefs)
 }

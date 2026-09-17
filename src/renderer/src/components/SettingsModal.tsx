@@ -5,11 +5,30 @@ import { XIcon, SettingsIcon, CopyIcon, CheckCircleIcon, EyeIcon, EyeOffIcon, Re
 export default function SettingsModal(props: { isOpen: boolean; onClose: () => void }) {
   const [status, setStatus] = createSignal<McpStatus | null>(null)
   const [busy, setBusy] = createSignal(false)
+  const [autoCategorizationEnabled, setAutoCategorizationEnabled] = createSignal(true)
+  const [autoCategorizationBusy, setAutoCategorizationBusy] = createSignal(false)
   const [showToken, setShowToken] = createSignal(false)
   const [copiedField, setCopiedField] = createSignal<'url' | 'token' | null>(null)
 
   async function refresh(): Promise<void> {
-    setStatus(await window.api.getMcpStatus())
+    const [mcpStatus, autoCategorization] = await Promise.all([
+      window.api.getMcpStatus(),
+      window.api.getAutoCategorizationEnabled()
+    ])
+    setStatus(mcpStatus)
+    setAutoCategorizationEnabled(autoCategorization)
+  }
+
+  async function toggleAutoCategorization(): Promise<void> {
+    if (autoCategorizationBusy()) return
+    setAutoCategorizationBusy(true)
+    try {
+      setAutoCategorizationEnabled(
+        await window.api.setAutoCategorizationEnabled(!autoCategorizationEnabled())
+      )
+    } finally {
+      setAutoCategorizationBusy(false)
+    }
   }
 
   createEffect(() => {
@@ -69,6 +88,32 @@ export default function SettingsModal(props: { isOpen: boolean; onClose: () => v
               {(s) => (
                 <>
                   <div class="settings-section">
+                    <div class="settings-row">
+                      <div class="settings-row-text">
+                        <span class="settings-row-title">Automatic categorization</span>
+                        <span class="settings-row-desc">
+                          Categorize sounds automatically when indexing or re-indexing a library. Turn this off
+                          to organize sounds manually.
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        class="settings-switch"
+                        classList={{ on: autoCategorizationEnabled() }}
+                        disabled={autoCategorizationBusy()}
+                        onClick={toggleAutoCategorization}
+                        title={
+                          autoCategorizationEnabled()
+                            ? 'Turn off automatic categorization'
+                            : 'Turn on automatic categorization'
+                        }
+                      >
+                        <span class="settings-switch-thumb" />
+                      </button>
+                    </div>
+
+                    <div class="settings-divider" />
+
                     <div class="settings-row">
                       <div class="settings-row-text">
                         <span class="settings-row-title">MCP Server</span>

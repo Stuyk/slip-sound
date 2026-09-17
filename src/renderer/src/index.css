@@ -1925,6 +1925,11 @@ a {
   gap: 14px;
 }
 
+.settings-divider {
+  height: 1px;
+  background: var(--border-subtle);
+}
+
 .settings-row {
   display: flex;
   align-items: flex-start;
@@ -3027,4 +3032,3 @@ kbd {
   font-size: 12px;
   color: var(--text-muted);
 }
-
