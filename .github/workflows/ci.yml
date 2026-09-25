@@ -157,7 +157,7 @@ jobs:
         shell: bash
         run: |
           node node_modules/ffmpeg-static/install.js
-          ls node_modules/ffmpeg-static/ffmpeg node_modules/ffmpeg-static/ffmpeg.exe 2>/dev/null | grep -q . \
+          node -e "const p = require('ffmpeg-static'); require('fs').statSync(p); console.log('ffmpeg at', p)" \
             || { echo "::error::ffmpeg binary missing"; exit 1; }
 
       - name: Build Application
