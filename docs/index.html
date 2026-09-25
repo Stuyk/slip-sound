@@ -4,119 +4,478 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Slip Sound</title>
-  <meta name="description" content="Fast, brain-dead simple desktop audio sample manager. Local, free, no accounts." />
+  <meta name="description" content="Desktop audio sample manager. Indexes 170,000 files in about two minutes, searches in under 0.2s. Local, free, no accounts." />
+  <meta property="og:title" content="Slip Sound" />
+  <meta property="og:description" content="Desktop audio sample manager. Local, free, no accounts." />
+  <meta property="og:image" content="https://stuyk.github.io/slip-sound/social-preview.png" />
   <link rel="icon" href="icon.png" />
+  <link rel="stylesheet" href="fonts/fonts.css" />
   <style>
     :root {
-      --bg: #0b0c0f;
-      --bg-panel: #14161b;
-      --text: #e8e8ea;
-      --text-dim: #9a9ba3;
-      --accent: #7c9eff;
-      --border: #23252b;
+      --bg: #1a1e25;
+      --panel: #222730;
+      --row: #272d37;
+      --line: #313844;
+      --text: #e4e7ec;
+      --dim: #8e96a3;
+      --blue: #2e7fd9;
+      --blue-hi: #4b95e6;
+      --blue-bg: #1f3a57;
+      --sans: "IBM Plex Sans", system-ui, sans-serif;
+      --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
     }
     * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body {
       margin: 0;
       background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      line-height: 1.5;
+      font: 16px/1.55 var(--sans);
+      -webkit-font-smoothing: antialiased;
     }
-    .wrap {
-      max-width: 760px;
-      margin: 0 auto;
-      padding: 64px 20px 80px;
+    a { color: var(--blue-hi); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, kbd, .mono { font-family: var(--mono); font-size: 0.88em; }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+    /* top bar */
+    .bar {
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
     }
-    header { text-align: center; margin-bottom: 40px; }
-    header img {
-      width: 96px;
-      height: 96px;
-      border-radius: 20px;
-      margin-bottom: 16px;
+    .bar .wrap {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      height: 56px;
     }
-    h1 { font-size: 2.25rem; margin: 0 0 8px; }
-    .tagline { color: var(--text-dim); font-size: 1.1rem; margin: 0 0 28px; }
-    .cta {
-      display: inline-block;
-      background: var(--accent);
-      color: #0b0c0f;
+    .brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 600; }
+    .brand:hover { text-decoration: none; }
+    .brand img { width: 26px; height: 26px; border-radius: 5px; }
+    .brand .ver { font: 500 12px var(--mono); color: var(--dim); }
+    .bar nav { display: flex; gap: 18px; margin-left: auto; font-size: 14px; }
+    .bar nav a { color: var(--dim); }
+    .bar nav a:hover { color: var(--text); text-decoration: none; }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--blue);
+      color: #fff;
+      font-weight: 500;
+      font-size: 15px;
+      padding: 9px 16px;
+      border-radius: 4px;
+      border: 1px solid var(--blue-hi);
+    }
+    .btn:hover { background: var(--blue-hi); text-decoration: none; }
+    .btn.ghost { background: transparent; border-color: var(--line); color: var(--text); }
+    .btn.ghost:hover { background: var(--row); }
+    .btn svg { width: 16px; height: 16px; }
+
+    /* intro */
+    .intro {
+      display: grid;
+      grid-template-columns: 1.35fr 1fr;
+      gap: 56px;
+      padding: 64px 0 40px;
+      align-items: end;
+    }
+    h1 {
+      font-size: 40px;
+      line-height: 1.15;
+      letter-spacing: -0.015em;
       font-weight: 600;
-      text-decoration: none;
-      padding: 12px 28px;
-      border-radius: 8px;
-      font-size: 1rem;
+      margin: 0 0 18px;
     }
-    .cta:hover { opacity: 0.9; }
-    .sub-link {
+    .intro p { color: var(--dim); font-size: 18px; margin: 0 0 26px; max-width: 34em; }
+    .intro p strong { color: var(--text); font-weight: 500; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .actions .note { font-size: 13px; color: var(--dim); margin-left: 4px; }
+
+    .specs { margin: 0; border-top: 1px solid var(--line); }
+    .specs div {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 15px;
+    }
+    .specs dt { color: var(--dim); }
+    .specs dd { margin: 0; font-family: var(--mono); font-size: 14px; text-align: right; }
+
+    /* screenshot */
+    .shot { position: relative; margin: 0 0 12px; }
+    .shot img {
       display: block;
-      margin-top: 12px;
-      color: var(--text-dim);
-      font-size: 0.9rem;
-      text-decoration: none;
-    }
-    .sub-link:hover { color: var(--text); }
-    img.shot {
       width: 100%;
-      border-radius: 10px;
-      border: 1px solid var(--border);
-      margin: 40px 0 0;
-      display: block;
+      height: auto;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.6);
     }
-    .features {
+    .pin {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #f2b134;
+      color: #1a1e25;
+      font: 600 12px/24px var(--mono);
+      text-align: center;
+      box-shadow: 0 0 0 3px rgba(26, 30, 37, 0.85);
+    }
+    .legend {
       list-style: none;
       padding: 0;
-      margin: 48px 0 0;
+      margin: 0 0 72px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px 28px;
+      font-size: 14px;
+      color: var(--dim);
+    }
+    .legend li { display: flex; gap: 10px; align-items: baseline; }
+    .legend b {
+      flex: none;
+      font: 600 12px var(--mono);
+      color: #f2b134;
+      width: 14px;
+    }
+
+    /* sections */
+    section { padding: 0 0 72px; }
+    .sec-head > *, .intro > * { min-width: 0; }
+    .sec-head {
+      display: grid;
+      grid-template-columns: 240px 1fr;
+      gap: 40px;
+    }
+    h2 {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin: 4px 0 0;
+    }
+    h2 .n { font-family: var(--mono); color: var(--blue-hi); margin-right: 8px; }
+    .lead { font-size: 20px; margin: 0 0 28px; max-width: 36em; }
+
+    .feats {
       display: grid;
       grid-template-columns: 1fr 1fr;
+      gap: 0 40px;
+      margin: 0;
+    }
+    .feats > div { padding: 14px 0; border-top: 1px solid var(--line); }
+    .feats dt { font-weight: 500; margin-bottom: 2px; }
+    .feats dd { margin: 0; color: var(--dim); font-size: 15px; }
+
+    .tree {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 16px 20px;
+      font: 14px/1.7 var(--mono);
+      color: var(--dim);
+      white-space: pre;
+      overflow-x: auto;
+      margin: 0 0 20px;
+    }
+    .tree .hl { color: var(--text); }
+    .tree .c { color: #f2b134; }
+    .body-text { color: var(--dim); max-width: 40em; margin: 0; }
+    .body-text + .body-text { margin-top: 12px; }
+
+    .keys {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 40px;
+      margin: 0;
+    }
+    .keys > div {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
       gap: 16px;
+      padding: 9px 0;
+      border-top: 1px solid var(--line);
+      font-size: 15px;
     }
-    .features li {
-      background: var(--bg-panel);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
-      font-size: 0.95rem;
-    }
-    .features strong { display: block; margin-bottom: 4px; }
-    .features span { color: var(--text-dim); }
-    footer {
+    .keys dt { color: var(--dim); order: 2; text-align: right; }
+    .keys dd { margin: 0; white-space: nowrap; }
+    kbd {
+      display: inline-block;
+      min-width: 26px;
+      padding: 2px 7px;
+      background: var(--row);
+      border: 1px solid var(--line);
+      border-bottom-width: 2px;
+      border-radius: 4px;
+      color: var(--text);
+      font-size: 13px;
       text-align: center;
-      margin-top: 56px;
-      color: var(--text-dim);
-      font-size: 0.85rem;
     }
-    footer a { color: var(--text-dim); }
-    @media (max-width: 560px) {
-      .features { grid-template-columns: 1fr; }
-      h1 { font-size: 1.8rem; }
+
+    .tools {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 40px;
+      margin: 20px 0 0;
+    }
+    .tools > div { padding: 9px 0; border-top: 1px solid var(--line); font-size: 14px; }
+    .tools dt { font-family: var(--mono); font-size: 13px; color: var(--blue-hi); overflow-wrap: anywhere; }
+    .tools dd { margin: 0; color: var(--dim); }
+
+    .dl {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin: 0 0 24px;
+    }
+    .dl a {
+      display: block;
+      padding: 18px 20px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      color: var(--text);
+    }
+    .dl a:hover { border-color: var(--blue); text-decoration: none; }
+    .dl strong { display: block; font-size: 17px; font-weight: 600; }
+    .dl span { font: 13px var(--mono); color: var(--dim); }
+    pre {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 4px;
+      padding: 14px 18px;
+      font: 13px/1.7 var(--mono);
+      color: var(--text);
+      overflow-x: auto;
+      margin: 12px 0 0;
+    }
+    pre .c { color: var(--dim); }
+
+    .alts { color: var(--dim); margin: 0; }
+    .alts span { color: var(--text); }
+
+    footer {
+      border-top: 1px solid var(--line);
+      padding: 24px 0 40px;
+      font-size: 14px;
+      color: var(--dim);
+    }
+    footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; }
+    footer a { color: var(--dim); }
+    footer .right { margin-left: auto; }
+
+    @media (max-width: 860px) {
+      .intro { grid-template-columns: 1fr; gap: 32px; padding-top: 40px; }
+      h1 { font-size: 32px; }
+      .sec-head { grid-template-columns: 1fr; gap: 16px; }
+      .legend { grid-template-columns: 1fr 1fr; }
+      .bar nav { display: none; }
+      .bar .btn { margin-left: auto; }
+    }
+    @media (max-width: 600px) {
+      .wrap { padding: 0 16px; }
+      h1 { font-size: 28px; }
+      .intro p { font-size: 16px; }
+      .lead { font-size: 18px; }
+      .feats, .keys, .tools, .dl, .legend { grid-template-columns: 1fr; }
+      .pin { width: 18px; height: 18px; font-size: 10px; line-height: 18px; box-shadow: 0 0 0 2px rgba(26, 30, 37, 0.85); }
+      footer .right { margin-left: 0; }
     }
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <header>
-      <img src="icon.png" alt="Slip Sound icon" />
-      <h1>Slip Sound</h1>
-      <p class="tagline">Fast, brain-dead simple desktop audio sample manager.</p>
-      <a class="cta" href="https://github.com/Stuyk/slip-sound/releases">Download</a>
-      <a class="sub-link" href="https://github.com/Stuyk/slip-sound">View on GitHub</a>
-    </header>
 
-    <img class="shot" src="screenshots/01-library-browse.png" alt="Slip Sound library browser" />
+  <header class="bar">
+    <div class="wrap">
+      <a class="brand" href="#">
+        <img src="icon.png" alt="" />
+        Slip Sound
+      </a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#shortcuts">Shortcuts</a>
+        <a href="#mcp">MCP</a>
+        <a href="https://github.com/Stuyk/slip-sound">GitHub</a>
+      </nav>
+      <a class="btn" href="#download">Download</a>
+    </div>
+  </header>
 
-    <ul class="features">
-      <li><strong>Search & auto-categorize</strong><span>Instant fuzzy filtering, auto-tagged on index.</span></li>
-      <li><strong>Waveform preview</strong><span>Click-to-seek, drag to select and loop a region.</span></li>
-      <li><strong>Batch exporter</strong><span>WAV or OGG, any sample rate, auto-numbered output.</span></li>
-      <li><strong>DAW drag & drop</strong><span>Drag straight into Reaper, Ableton, FL Studio, and more.</span></li>
-      <li><strong>100% offline</strong><span>No accounts, no subscriptions, no tracking.</span></li>
-      <li><strong>MCP server (opt-in)</strong><span>Let AI tools search, tag, and export your library.</span></li>
-    </ul>
+  <main class="wrap">
 
-    <footer>
-      Windows & Linux &middot; <a href="https://github.com/Stuyk/slip-sound">github.com/Stuyk/slip-sound</a>
-    </footer>
-  </div>
+    <div class="intro">
+      <div>
+        <h1>Find the right sound in a folder of 170,000 without waiting on anything.</h1>
+        <p>Slip Sound is a desktop sample manager for Windows, macOS, and Linux. Point it at a folder, it indexes every audio file, and search returns in <strong>under 0.2 seconds</strong>. Everything stays on your drive. <strong>Free, GPL-licensed, no account.</strong></p>
+        <div class="actions">
+          <a class="btn" href="https://github.com/Stuyk/slip-sound/releases/latest">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 2v8m0 0L4.5 6.5M8 10l3.5-3.5M2.5 13.5h11"/></svg>
+            Download latest
+          </a>
+          <a class="btn ghost" href="https://github.com/Stuyk/slip-sound">Source on GitHub</a>
+        </div>
+      </div>
+      <dl class="specs">
+        <div><dt>Index 170k files</dt><dd>~2 min</dd></div>
+        <div><dt>Search</dt><dd>&lt; 0.2 s</dd></div>
+        <div><dt>Export</dt><dd>WAV 16/24/32 · OGG</dd></div>
+        <div><dt>Platforms</dt><dd>Windows · macOS · Linux</dd></div>
+        <div><dt>Price</dt><dd>$0</dd></div>
+        <div><dt>Network calls</dt><dd>0</dd></div>
+      </dl>
+    </div>
+
+    <figure class="shot" style="margin:0 0 12px">
+      <img src="screenshots/screenshot-01.png" width="1543" height="871" alt="Slip Sound searching 178,825 sounds for 'bell', with a region selected on the waveform" />
+      <span class="pin" style="left:8%;top:28%">1</span>
+      <span class="pin" style="left:30%;top:6.2%">2</span>
+      <span class="pin" style="left:57%;top:6.2%">3</span>
+      <span class="pin" style="left:57.5%;top:20.2%">4</span>
+      <span class="pin" style="left:23.5%;top:85%">5</span>
+      <span class="pin" style="left:97%;top:88%">6</span>
+    </figure>
+    <ol class="legend">
+      <li><b>1</b>Categories with live counts, auto-tagged on index</li>
+      <li><b>2</b>Search: 100 of 257 matches across 178,825 files</li>
+      <li><b>3</b>Filter by channels, max duration, favorites</li>
+      <li><b>4</b>Click a category chip to reassign it</li>
+      <li><b>5</b>Drag across the waveform to select and loop a region</li>
+      <li><b>6</b>Export only that region, or drag it into your DAW</li>
+    </ol>
+
+    <section id="features">
+      <div class="sec-head">
+        <h2><span class="n">01</span>Features</h2>
+        <div>
+          <p class="lead">Browse, audition, trim, export. The things you do fifty times an hour are one key or one drag.</p>
+          <dl class="feats">
+            <div><dt>Instant search</dt><dd>Filter by name, channels, duration, favorites, or category. Results update as you type.</dd></div>
+            <div><dt>Auto-categorize</dt><dd>Files are tagged on index from their names and paths. Can be turned off in Settings.</dd></div>
+            <div><dt>Manual overrides</dt><dd>Reassign or clear any category. Your changes survive reindexes.</dd></div>
+            <div><dt>Waveform preview</dt><dd>Click to seek, drag to select, loop the selection. Auto-play as you arrow through the list.</dd></div>
+            <div><dt>Region export</dt><dd>Export just the selected slice, or drag it straight out of the app.</dd></div>
+            <div><dt>DAW drag &amp; drop</dt><dd>Drag one file or a whole selection into Reaper, Ableton, FL Studio, Godot, Unity.</dd></div>
+            <div><dt>Batch exporter</dt><dd>WAV at 16, 24 or 32-bit, or OGG Vorbis. Any sample rate. Numbered or lettered output names.</dd></div>
+            <div><dt>Favorites</dt><dd>Star sounds and filter down to just those.</dd></div>
+            <div><dt>Sortable table</dt><dd>Sort by name, category, duration, channels, rate, or size.</dd></div>
+            <div><dt>Reveal in folder</dt><dd>Jump to any file in your system file manager.</dd></div>
+            <div><dt>Keyboard-driven</dt><dd>Every action has a shortcut. Press <kbd>?</kbd> in the app for the guide.</dd></div>
+            <div><dt>Reopens where you left off</dt><dd>Your last library loads on launch.</dd></div>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <section id="how">
+      <div class="sec-head">
+        <h2><span class="n">02</span>How it stores things</h2>
+        <div>
+          <p class="lead">The index lives inside the folder it describes.</p>
+          <div class="tree"><span class="hl">D:/Samples/</span>
+├── <span class="hl">slip-sound.db</span>      <span class="c">← SQLite index, categories, favorites</span>
+├── Ambience/
+├── Foley/
+└── Weapons/</div>
+          <p class="body-text">Every folder you open gets its own SQLite file at its root. Index once, and reopening is instant. Reindex only when you've added or changed files. There's no central catalog and no hidden app-data blob, so the index moves with the folder to another drive or machine.</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="shortcuts">
+      <div class="sec-head">
+        <h2><span class="n">03</span>Shortcuts</h2>
+        <dl class="keys">
+          <div><dt>Play / pause</dt><dd><kbd>Space</kbd></dd></div>
+          <div><dt>Focus search</dt><dd><kbd>Ctrl</kbd> <kbd>F</kbd></dd></div>
+          <div><dt>Previous / next sound</dt><dd><kbd>↑</kbd> <kbd>↓</kbd></dd></div>
+          <div><dt>Open folder</dt><dd><kbd>Ctrl</kbd> <kbd>O</kbd></dd></div>
+          <div><dt>Jump to top / bottom</dt><dd><kbd>Home</kbd> <kbd>End</kbd></dd></div>
+          <div><dt>Toggle category sidebar</dt><dd><kbd>Ctrl</kbd> <kbd>B</kbd></dd></div>
+          <div><dt>Add to selection</dt><dd><kbd>Ctrl</kbd> <kbd>Click</kbd></dd></div>
+          <div><dt>Export selection / region</dt><dd><kbd>Ctrl</kbd> <kbd>E</kbd></dd></div>
+          <div><dt>Select range</dt><dd><kbd>Shift</kbd> <kbd>Click</kbd></dd></div>
+          <div><dt>Toggle auto-play</dt><dd><kbd>Alt</kbd> <kbd>A</kbd></dd></div>
+          <div><dt>Select all matches</dt><dd><kbd>Ctrl</kbd> <kbd>A</kbd></dd></div>
+          <div><dt>Help guide</dt><dd><kbd>?</kbd></dd></div>
+        </dl>
+      </div>
+    </section>
+
+    <section id="mcp">
+      <div class="sec-head">
+        <h2><span class="n">04</span>MCP server</h2>
+        <div>
+          <p class="lead">Optional. Lets Claude Desktop, Cursor, or VS Code search, tag, and export your library.</p>
+          <p class="body-text">Off by default; enable it in Settings. It binds to <code>127.0.0.1</code> only, mints a new bearer token each launch, and checks Origin/Host headers to block browser DNS-rebinding. Settings shows the URL and token ready to paste into an <code>mcpServers</code> block.</p>
+          <dl class="tools">
+            <div><dt>search_sounds</dt><dd>Filter by name, category, channels, duration, favorite</dd></div>
+            <div><dt>list_uncategorized_sounds</dt><dd>Page through untagged sounds for an agent to sort</dd></div>
+            <div><dt>set_category / clear_category</dt><dd>Tag or untag a sound</dd></div>
+            <div><dt>export_sound</dt><dd>Export, optionally trimmed, to WAV/OGG</dd></div>
+            <div><dt>get_sound · get_categories</dt><dd>Metadata and facet counts</dd></div>
+            <div><dt>toggle_favorite</dt><dd>Star or unstar</dd></div>
+            <div><dt>open_library · reindex_library</dt><dd>Switch folders, rescan for changes</dd></div>
+            <div><dt>reveal_in_folder</dt><dd>Open the file's location</dd></div>
+          </dl>
+        </div>
+      </div>
+    </section>
+
+    <section id="download">
+      <div class="sec-head">
+        <h2><span class="n">05</span>Download</h2>
+        <div>
+          <div class="dl">
+            <a href="https://github.com/Stuyk/slip-sound/releases/latest">
+              <strong>Windows</strong>
+              <span>Installer (.exe) · Portable (.exe)</span>
+            </a>
+            <a href="https://github.com/Stuyk/slip-sound/releases/latest">
+              <strong>macOS</strong>
+              <span>.dmg · .zip</span>
+            </a>
+            <a href="https://github.com/Stuyk/slip-sound/releases/latest">
+              <strong>Linux</strong>
+              <span>AppImage · .deb · .tar.gz</span>
+            </a>
+          </div>
+          <p class="body-text">Each release ships SHA256 checksums alongside the binaries.</p>
+<pre><span class="c"># Linux</span>
+sha256sum -c SHA256SUMS-linux.txt
+<span class="c"># macOS</span>
+shasum -a 256 -c SHA256SUMS-mac.txt
+<span class="c"># Windows — compare against SHA256SUMS-windows.txt</span>
+certutil -hashfile slip-sound-Setup.exe SHA256</pre>
+        </div>
+      </div>
+    </section>
+
+    <section id="alternatives">
+      <div class="sec-head">
+        <h2><span class="n">06</span>Instead of</h2>
+        <p class="alts">A free, local alternative to <span>Soundly</span>, <span>BaseHead</span>, <span>Soundminer</span>, <span>Resonic</span>, <span>AudioFinder</span>, <span>Sononym</span>, and <span>ADSR Sample Manager</span>.</p>
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <span>Slip Sound by <a href="https://github.com/Stuyk">Stuyk</a></span>
+      <span>GPL-3.0-or-later</span>
+      <a href="https://github.com/Stuyk/slip-sound/issues">Report an issue</a>
+      <a class="right" href="https://github.com/Stuyk/slip-sound">github.com/Stuyk/slip-sound</a>
+    </div>
+  </footer>
+
 </body>
 </html>

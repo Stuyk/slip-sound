@@ -21,7 +21,7 @@ Slip Sound is fast, local, and free. No accounts, no subscriptions, and no file 
 </p>
 
 <p align="center">
-  <img src="screenshots/01-library-browse.png" alt="Browsing a sound library" width="800" />
+  <img src="docs/screenshots/screenshot-01.png" alt="Slip Sound searching a 178,825-sound library" width="800" />
 </p>
 
 ## Core Philosophy
@@ -121,10 +121,11 @@ Bound to `127.0.0.1` only, with a random bearer token minted per launch and Orig
 
 ## Releases
 
-Every GitHub release ships a `SHA256SUMS-linux.txt` / `SHA256SUMS-windows.txt` alongside the binaries. Verify a download with:
+Every GitHub release ships a `SHA256SUMS-linux.txt` / `SHA256SUMS-mac.txt` / `SHA256SUMS-windows.txt` alongside the binaries. Verify a download with:
 
 ```bash
 sha256sum -c SHA256SUMS-linux.txt   # Linux
+shasum -a 256 -c SHA256SUMS-mac.txt   # macOS
 certutil -hashfile slip-sound-Setup.exe SHA256   # Windows, compare against the .txt
 ```
 
@@ -135,6 +136,7 @@ Releases are driven entirely by `package.json`'s `version` field, no manual tagg
 ```bash
 bun run build:linux  # AppImage, deb, tar.gz
 bun run build:win    # NSIS installer, portable exe
+bun run build:mac    # dmg, zip
 bun run build:all    # Both
 ```
 

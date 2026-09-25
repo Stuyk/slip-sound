@@ -17,6 +17,10 @@ asarUnpack:
   - resources/**
   - node_modules/ffmpeg-static/**
 
+extraResources:
+  - from: src/renderer/src/assets/fonts/OFL.txt
+    to: licenses/fonts-OFL.txt
+
 win:
   executableName: Slip Sound
   icon: build/icon.ico

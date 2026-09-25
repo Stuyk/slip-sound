@@ -6,33 +6,34 @@ import { Badge } from './ui/Badge';
 import { ProgressBar } from './ui/ProgressBar';
 import { SegmentedControl } from './ui/SegmentedControl';
 import { Select } from './ui/Select';
+import { TextInput } from './ui/TextInput';
+import { Slider } from './ui/Slider';
 import {
   Download,
   CheckCircle2,
   AlertCircle,
   FileAudio,
-  Sliders,
-  Tag,
   Folder,
-  ArrowRight,
   RefreshCw,
+  Sparkles,
+  Scissors,
 } from 'lucide-solid';
 
 const SAMPLE_RATES = [8000, 11025, 16000, 22050, 32000, 44100, 48000, 96000];
 const BIT_DEPTHS: BitDepth[] = [16, 24, 32];
 
 const OGG_BITRATES = [
-  '~64 kbps',
+  '~64 kbps (Voice)',
   '~80 kbps',
   '~96 kbps',
   '~112 kbps',
-  '~128 kbps',
-  '~160 kbps',
+  '~128 kbps (Standard)',
+  '~160 kbps (High)',
   '~192 kbps',
   '~224 kbps',
-  '~256 kbps',
-  '~320 kbps',
-  '~500 kbps',
+  '~256 kbps (Very High)',
+  '~320 kbps (Near Lossless)',
+  '~500 kbps (Maximum)',
 ];
 
 export interface ExportFile {
@@ -89,6 +90,7 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
   const [progress, setProgress] = createSignal<{ done: number; total: number } | null>(null);
   const [results, setResults] = createSignal<ExportBatchFileResult[] | null>(null);
   const [destFolder, setDestFolder] = createSignal<string | null>(null);
+  const [activePreset, setActivePreset] = createSignal<'cd' | 'game' | 'web' | null>(null);
 
   createEffect(() => {
     saveExportDefaults({
@@ -118,7 +120,7 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
     const f = props.files[0];
     if (f.start !== undefined && f.end !== undefined) {
       const dur = Math.max(0, f.end - f.start);
-      return `${f.start.toFixed(2)}s – ${f.end.toFixed(2)}s (${dur.toFixed(2)}s)`;
+      return `${f.start.toFixed(2)}s – ${f.end.toFixed(2)}s (${dur.toFixed(2)}s duration)`;
     }
     return null;
   };
@@ -148,11 +150,28 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
     return result;
   }
 
+  function applyPreset(preset: 'cd' | 'game' | 'web') {
+    setActivePreset(preset);
+    if (preset === 'cd') {
+      setFormat('wav');
+      setSampleRate(44100);
+      setBitDepth(16);
+    } else if (preset === 'game') {
+      setFormat('wav');
+      setSampleRate(48000);
+      setBitDepth(24);
+    } else if (preset === 'web') {
+      setFormat('ogg');
+      setSampleRate(44100);
+      setOggQuality(5);
+    }
+  }
+
   const summaryText = (): string => {
     if (format() === 'wav') {
-      return `WAV · ${(sampleRate() / 1000).toFixed(1)} kHz · ${bitDepth()}-bit PCM`;
+      return `WAV · ${(sampleRate() / 1000).toFixed(1)} kHz · ${bitDepth()}-bit`;
     }
-    return `OGG Vorbis · ${(sampleRate() / 1000).toFixed(1)} kHz · Q${oggQuality()} (${OGG_BITRATES[oggQuality()] || ''})`;
+    return `OGG · ${(sampleRate() / 1000).toFixed(1)} kHz · Q${oggQuality()}`;
   };
 
   async function runExport(): Promise<void> {
@@ -195,21 +214,29 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
       isOpen={props.open}
       onClose={close}
       title={
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2.5">
           <span>Export Audio</span>
-          <Badge variant="accent">{props.files.length} {props.files.length === 1 ? 'sound' : 'sounds'}</Badge>
+          <Badge variant="accent">
+            {props.files.length} {props.files.length === 1 ? 'sound' : 'sounds'}
+          </Badge>
           <Show when={hasRegion()}>
-            <Badge variant="warning">Region: {regionInfo()}</Badge>
+            <Badge variant="warning" class="flex items-center gap-1">
+              <Scissors size={12} />
+              <span>Trimmed Region</span>
+            </Badge>
           </Show>
         </div>
       }
-      icon={<Download size={15} />}
-      width="640px"
+      icon={<Download size={16} />}
+      width="580px"
       footer={
         <Show
           when={!results()}
           fallback={
-            <div id="export-modal-footer-done" class="w-full flex justify-end">
+            <div id="export-modal-footer-done" class="w-full flex items-center justify-between">
+              <span class="text-md text-[var(--text-muted)] font-mono">
+                {okCount()} exported, {failCount()} failed
+              </span>
               <Button id="export-modal-btn-done" variant="primary" size="sm" onClick={close}>
                 Done
               </Button>
@@ -217,9 +244,12 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
           }
         >
           <div id="export-modal-footer-actions" class="w-full flex items-center justify-between">
-            <span id="export-modal-summary" class="text-md font-mono text-[var(--text-muted)]">
-              {summaryText()}
-            </span>
+            <div class="flex items-center gap-2">
+              <span class="text-md text-[var(--text-muted)] font-mono">Preset:</span>
+              <span id="export-modal-summary" class="text-md font-mono text-[var(--accent-color)] font-semibold">
+                {summaryText()}
+              </span>
+            </div>
             <div class="flex items-center gap-2">
               <Button id="export-modal-btn-cancel" variant="ghost" size="sm" onClick={close} disabled={exporting()}>
                 Cancel
@@ -230,7 +260,7 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
                 size="sm"
                 onClick={runExport}
                 disabled={exporting() || props.files.length === 0}
-                icon={exporting() ? <RefreshCw size={12} class="animate-spin" /> : <Download size={12} />}
+                icon={exporting() ? <RefreshCw size={13} class="animate-spin" /> : <Download size={13} />}
               >
                 {exporting()
                   ? 'Exporting…'
@@ -244,8 +274,9 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
       <Show
         when={!results()}
         fallback={
-          <div class="flex flex-col gap-3 py-2 text-md">
-            <div class="flex items-center gap-3 p-3 bg-black/20 border border-[var(--border-color)] rounded-[3px]">
+          /* Export Results Screen */
+          <div class="flex flex-col gap-4 py-1 text-md">
+            <div class="flex items-center gap-3.5 p-3.5 bg-black/20 border border-[var(--border-color)] rounded-[3px]">
               <div class="shrink-0">
                 {failCount() === 0 ? (
                   <CheckCircle2 size={24} class="text-emerald-400" />
@@ -253,11 +284,11 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
                   <AlertCircle size={24} class="text-amber-400" />
                 )}
               </div>
-              <div>
+              <div class="flex flex-col gap-1">
                 <div class="font-bold text-md text-[var(--text-main)]">
                   {failCount() === 0 ? 'Export Completed Successfully' : 'Export Finished with Warnings'}
                 </div>
-                <div class="flex gap-2 mt-1">
+                <div class="flex gap-2">
                   <Show when={okCount() > 0}>
                     <Badge variant="success">{okCount()} exported</Badge>
                   </Show>
@@ -269,25 +300,28 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
             </div>
 
             <Show when={destFolder()}>
-              <div class="flex items-center gap-2 p-2 bg-black/30 border border-[var(--border-color)] rounded-[2px] font-mono text-md">
-                <Folder size={13} class="text-[var(--accent-color)] shrink-0" />
-                <span class="truncate text-[var(--text-muted)]">{destFolder()}</span>
+              <div class="flex flex-col gap-1.5 p-3 bg-black/20 border border-[var(--border-color)] rounded-[3px]">
+                <span class="text-md font-mono text-[var(--text-muted)]">Destination Folder</span>
+                <div class="flex items-center gap-2 font-mono text-md text-[var(--text-main)] truncate">
+                  <Folder size={15} class="text-[var(--accent-color)] shrink-0" />
+                  <span class="truncate">{destFolder()}</span>
+                </div>
               </div>
             </Show>
 
-            <div class="flex flex-col gap-1 max-h-48 overflow-y-auto dcc-scroll bg-black/30 border border-[var(--border-color)] rounded-[2px] p-2">
+            <div class="flex flex-col gap-1 max-h-56 overflow-y-auto dcc-scroll bg-black/20 border border-[var(--border-color)] rounded-[3px] p-2.5">
               <For each={results()}>
                 {(r) => (
-                  <div class="flex items-center justify-between text-md font-mono py-0.5 border-b border-white/5">
-                    <div class="flex items-center gap-1.5 truncate">
+                  <div class="flex items-center justify-between text-md font-mono py-1.5 px-2 border-b border-white/5 last:border-b-0">
+                    <div class="flex items-center gap-2 truncate">
                       {r.ok ? (
-                        <CheckCircle2 size={12} class="text-emerald-400 shrink-0" />
+                        <CheckCircle2 size={14} class="text-emerald-400 shrink-0" />
                       ) : (
-                        <AlertCircle size={12} class="text-red-400 shrink-0" />
+                        <AlertCircle size={14} class="text-red-400 shrink-0" />
                       )}
                       <span class="truncate">{r.destPath ? r.destPath.split(/[/\\]/).pop() : r.sourcePath.split(/[/\\]/).pop()}</span>
                     </div>
-                    {!r.ok && <span class="text-red-400 text-md shrink-0">{r.error}</span>}
+                    {!r.ok && <span class="text-red-400 text-md shrink-0 ml-2">{r.error}</span>}
                   </div>
                 )}
               </For>
@@ -295,153 +329,216 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
           </div>
         }
       >
-        <div class="flex flex-col gap-4 text-md">
-          {/* Section 1: Format & Encoding */}
-          <div class="bg-black/20 border border-[var(--border-color)] rounded-[3px] p-3 flex flex-col gap-3">
-            <div class="flex items-center gap-1.5 font-bold text-md text-[var(--text-main)]">
-              <Sliders size={13} class="text-[var(--accent-color)]" />
-              <span>Format & Encoding</span>
+        <div class="flex flex-col gap-5 text-md">
+          {/* Region Export Callout (if active) */}
+          <Show when={hasRegion()}>
+            <div id="export-region-banner" class="flex items-center justify-between px-3.5 py-2.5 bg-amber-500/10 border border-amber-500/30 rounded-[3px] text-md">
+              <div class="flex items-center gap-2 text-amber-300 font-medium">
+                <Scissors size={15} class="shrink-0" />
+                <span>Exporting Selection Only</span>
+              </div>
+              <span class="font-mono text-amber-200/90 text-md">{regionInfo()}</span>
             </div>
+          </Show>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div class="flex flex-col gap-1">
-                <label class="text-md font-mono uppercase text-[var(--text-muted)]">Format</label>
-                <SegmentedControl
-                  id="export-format-control"
-                  value={format()}
-                  onChange={(val) => setFormat(val as ExportFormat)}
-                  items={[
-                    { id: 'wav', label: 'WAV (Lossless PCM)' },
-                    { id: 'ogg', label: 'OGG (Vorbis VBR)' },
-                  ]}
-                />
-              </div>
-
-              <div class="flex flex-col gap-1">
-                <label class="text-md font-mono uppercase text-[var(--text-muted)]">Sample Rate</label>
-                <Select
-                  id="export-sample-rate-select"
-                  value={String(sampleRate())}
-                  onChange={(val) => setSampleRate(parseInt(val, 10))}
-                  options={SAMPLE_RATES.map((rate) => ({
-                    value: String(rate),
-                    label: `${rate >= 1000 ? `${rate / 1000} kHz` : `${rate} Hz`} (${rate} Hz)`,
-                  }))}
-                />
-              </div>
-
-              <Show when={format() === 'wav'}>
-                <div class="flex flex-col gap-1">
-                  <label class="text-md font-mono uppercase text-[var(--text-muted)]">Bit Depth</label>
-                  <SegmentedControl
-                    id="export-bit-depth-control"
-                    value={String(bitDepth())}
-                    onChange={(val) => setBitDepth(parseInt(val, 10) as BitDepth)}
-                    items={BIT_DEPTHS.map((bd) => ({ id: String(bd), label: `${bd}-bit` }))}
-                  />
-                </div>
-              </Show>
-
-              <Show when={format() === 'ogg'}>
-                <div class="flex flex-col gap-1">
-                  <div class="flex justify-between items-center text-md">
-                    <span class="font-mono uppercase text-[var(--text-muted)]">Quality</span>
-                    <span class="font-mono text-[var(--accent-color)]">Q{oggQuality()} ({OGG_BITRATES[oggQuality()]})</span>
-                  </div>
-                  <input
-                    id="export-ogg-quality-slider"
-                    type="range"
-                    min="0"
-                    max="10"
-                    step="1"
-                    value={oggQuality()}
-                    onInput={(e) => setOggQuality(parseInt(e.currentTarget.value, 10))}
-                    class="w-full accent-[var(--accent-color)] h-2 cursor-pointer"
-                  />
-                </div>
-              </Show>
+          {/* Quick Presets */}
+          <div id="export-preset-bar" class="flex flex-col gap-2">
+            <div class="flex items-center justify-between text-md">
+              <span class="font-medium text-[var(--text-main)] flex items-center gap-1.5">
+                <Sparkles size={14} class="text-[var(--accent-color)]" />
+                <span>Presets</span>
+              </span>
+              <span class="text-md text-[var(--text-muted)] font-mono">1-click setup</span>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+              <Button
+                id="export-preset-cd"
+                variant={activePreset() === 'cd' ? 'primary' : 'default'}
+                size="sm"
+                onClick={() => applyPreset('cd')}
+                class="justify-center"
+              >
+                CD Audio (16b/44k)
+              </Button>
+              <Button
+                id="export-preset-game"
+                variant={activePreset() === 'game' ? 'primary' : 'default'}
+                size="sm"
+                onClick={() => applyPreset('game')}
+                class="justify-center"
+              >
+                Game / Film (24b/48k)
+              </Button>
+              <Button
+                id="export-preset-web"
+                variant={activePreset() === 'web' ? 'primary' : 'default'}
+                size="sm"
+                onClick={() => applyPreset('web')}
+                class="justify-center"
+              >
+                Web OGG (192k)
+              </Button>
             </div>
           </div>
 
-          {/* Section 2: File Naming Pattern */}
-          <div class="bg-black/20 border border-[var(--border-color)] rounded-[3px] p-3 flex flex-col gap-3">
-            <div class="flex items-center gap-1.5 font-bold text-md text-[var(--text-main)]">
-              <Tag size={13} class="text-[var(--accent-color)]" />
-              <span>File Naming</span>
+          <div class="h-[1px] bg-[var(--border-color)]" />
+
+          {/* Format & Audio Quality Configuration */}
+          <div class="flex flex-col gap-4">
+            <div class="flex items-center justify-between">
+              <label class="font-medium text-[var(--text-main)]">Format</label>
+              <SegmentedControl
+                id="export-format-control"
+                value={format()}
+                onChange={(val) => {
+                  setActivePreset(null);
+                  setFormat(val as ExportFormat);
+                }}
+                items={[
+                  { id: 'wav', label: 'WAV' },
+                  { id: 'ogg', label: 'OGG Vorbis' },
+                ]}
+              />
             </div>
 
-            <div class="flex flex-col gap-2">
+            <Show
+              when={format() === 'wav'}
+              fallback={
+                <div class="flex flex-col gap-2 p-3 bg-black/20 border border-[var(--border-color)] rounded-[3px]">
+                  <div class="flex justify-between items-center text-md">
+                    <span class="font-medium text-[var(--text-main)]">OGG Quality Level</span>
+                    <span class="font-mono text-md text-[var(--accent-color)] font-semibold">
+                      Q{oggQuality()} · {OGG_BITRATES[oggQuality()]}
+                    </span>
+                  </div>
+                  <Slider
+                    value={oggQuality()}
+                    min={0}
+                    max={10}
+                    step={1}
+                    showValue={false}
+                    onChange={(val) => {
+                      setActivePreset(null);
+                      setOggQuality(Math.round(val));
+                    }}
+                  />
+                  <div class="flex justify-between text-md font-mono text-[var(--text-muted)]">
+                    <span>Q0 (Small file)</span>
+                    <span>Q5 (Balanced)</span>
+                    <span>Q10 (Near Lossless)</span>
+                  </div>
+                </div>
+              }
+            >
+              <div class="flex items-center justify-between">
+                <label class="font-medium text-[var(--text-main)]">Bit Depth</label>
+                <SegmentedControl
+                  id="export-bit-depth-control"
+                  value={String(bitDepth())}
+                  onChange={(val) => {
+                    setActivePreset(null);
+                    setBitDepth(parseInt(val, 10) as BitDepth);
+                  }}
+                  items={BIT_DEPTHS.map((bd) => ({ id: String(bd), label: `${bd}-bit` }))}
+                />
+              </div>
+            </Show>
+
+            <div class="flex items-center justify-between gap-4">
+              <label class="font-medium text-[var(--text-main)] shrink-0">Sample Rate</label>
+              <div class="w-64">
+                <Select
+                  id="export-sample-rate-select"
+                  value={String(sampleRate())}
+                  onChange={(val) => {
+                    setActivePreset(null);
+                    setSampleRate(parseInt(val, 10));
+                  }}
+                  options={SAMPLE_RATES.map((rate) => ({
+                    value: String(rate),
+                    label: `${rate >= 1000 ? `${rate / 1000} kHz` : `${rate} Hz`}${
+                      rate === 44100 ? ' (CD Standard)' : rate === 48000 ? ' (Film / Video)' : ''
+                    }`,
+                  }))}
+                  class="w-full"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div class="h-[1px] bg-[var(--border-color)]" />
+
+          {/* Output Naming */}
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+              <label class="font-medium text-[var(--text-main)]">File Naming</label>
               <SegmentedControl
                 id="export-naming-control"
                 value={naming()}
                 onChange={(val) => setNaming(val as NamingMode)}
                 items={[
                   { id: 'original', label: 'Keep Original' },
-                  { id: 'numeric', label: 'Numeric (01–99)' },
-                  { id: 'alpha', label: 'Alphabetic (a–z)' },
+                  { id: 'numeric', label: '01, 02, 03' },
+                  { id: 'alpha', label: 'a, b, c' },
                 ]}
               />
-
-              <Show when={naming() !== 'original'}>
-                <div class="flex flex-col gap-1 mt-1">
-                  <label class="text-md font-mono uppercase text-[var(--text-muted)]">
-                    Base Name Prefix
-                  </label>
-                  <div class="flex items-center h-7 min-h-[28px] bg-[var(--bg-input)] border border-[var(--border-color)] rounded-[2px] px-2">
-                    <input
-                      id="export-base-name-input"
-                      type="text"
-                      class="w-full bg-transparent text-md text-[var(--text-main)] focus:outline-none"
-                      value={baseName()}
-                      onInput={(e) => setBaseName(e.currentTarget.value)}
-                      placeholder="sound"
-                    />
-                  </div>
-                </div>
-              </Show>
             </div>
+
+            <Show when={naming() !== 'original'}>
+              <div class="flex items-center justify-between gap-4 pt-1">
+                <label class="text-md text-[var(--text-muted)] shrink-0">Base Name</label>
+                <div class="w-64">
+                  <TextInput
+                    id="export-base-name-input"
+                    value={baseName()}
+                    onInput={(e) => setBaseName(e.currentTarget.value)}
+                    placeholder="sound"
+                    class="font-mono w-full"
+                  />
+                </div>
+              </div>
+            </Show>
           </div>
 
-          {/* Section 3: Output Preview */}
-          <div class="bg-black/20 border border-[var(--border-color)] rounded-[3px] p-3 flex flex-col gap-2">
-            <div class="flex items-center justify-between text-md text-[var(--text-main)] font-bold">
-              <div class="flex items-center gap-1.5">
-                <FileAudio size={13} class="text-emerald-400" />
-                <span>Output Preview</span>
-              </div>
-              <span class="text-md font-mono text-[var(--text-muted)] font-normal">
-                {props.files.length} {props.files.length === 1 ? 'file' : 'files'}
+          {/* Resulting Output Preview */}
+          <div class="flex flex-col gap-2 pt-1">
+            <div class="flex items-center justify-between text-md">
+              <span class="text-md font-mono text-[var(--text-muted)]">
+                Output Preview ({props.files.length} {props.files.length === 1 ? 'file' : 'files'})
               </span>
             </div>
 
-            <div class="flex flex-col gap-1 bg-black/30 border border-[var(--border-color)] rounded-[2px] p-2 max-h-32 overflow-y-auto dcc-scroll font-mono text-md">
-              <For each={props.files.slice(0, 5)}>
+            <div class="flex flex-col gap-1.5 bg-black/25 border border-[var(--border-color)] rounded-[3px] p-2.5 max-h-32 overflow-y-auto dcc-scroll font-mono text-md">
+              <For each={props.files.slice(0, 4)}>
                 {(file, i) => (
-                  <div class="flex items-center gap-2 py-0.5">
-                    <span class="text-[var(--text-muted)] w-5 text-right shrink-0">#{String(i() + 1).padStart(2, '0')}</span>
-                    <span class="text-[var(--accent-color)] font-medium truncate">{previewName(i())}</span>
+                  <div class="flex items-center justify-between py-1 px-2 rounded hover:bg-white/5 transition-colors">
+                    <div class="flex items-center gap-2 truncate">
+                      <FileAudio size={14} class="text-emerald-400 shrink-0" />
+                      <span class="text-emerald-400 font-semibold truncate">{previewName(i())}</span>
+                    </div>
                     <Show when={naming() !== 'original'}>
-                      <ArrowRight size={10} class="text-[var(--text-muted)] shrink-0" />
-                      <span class="text-[var(--text-muted)] truncate opacity-70">{file.filename}</span>
+                      <span class="text-md text-[var(--text-muted)] truncate max-w-[180px] shrink-0 ml-2 opacity-75">
+                        ← {file.filename}
+                      </span>
                     </Show>
                   </div>
                 )}
               </For>
-              <Show when={props.files.length > 5}>
-                <div class="text-md text-[var(--text-muted)] italic pt-1 border-t border-white/5">
-                  + {props.files.length - 5} additional files will follow this pattern
+              <Show when={props.files.length > 4}>
+                <div class="text-md text-[var(--text-muted)] italic pt-1 border-t border-white/5 text-center">
+                  + {props.files.length - 4} more files
                 </div>
               </Show>
             </div>
           </div>
 
-          {/* Export Progress Bar */}
+          {/* Progress Bar when exporting */}
           <Show when={exporting() && progress()}>
-            <div class="p-2 bg-black/40 border border-[var(--border-color)] rounded-[3px]">
+            <div class="p-3 bg-[#1e2022] border border-[#007acc] rounded-[3px] shadow-lg">
               <ProgressBar
                 value={Math.round((progress()!.done / Math.max(1, progress()!.total)) * 100)}
-                label="Exporting batch..."
-                statusText={`${progress()!.done} of ${progress()!.total}`}
+                label="Exporting batch audio..."
+                statusText={`${progress()!.done} of ${progress()!.total} files converted`}
               />
             </div>
           </Show>
@@ -450,3 +547,4 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
     </Modal>
   );
 }
+

@@ -404,17 +404,26 @@ function MainWorkstation() {
     setExportModalOpen(true)
   }
 
-  function openExportForSelection(): void {
-    const files: ExportFile[] = []
-    for (const row of multiSelected().values()) {
-      files.push({
-        sourcePath: row.path,
-        filename: row.filename
-      })
+  function openExportForSelection(region?: { start: number; end: number } | null): void {
+    if (multiSelected().size > 0 && !region) {
+      const files: ExportFile[] = []
+      for (const row of multiSelected().values()) {
+        files.push({
+          sourcePath: row.path,
+          filename: row.filename
+        })
+      }
+      if (files.length > 0) {
+        setExportFiles(files)
+        setExportModalOpen(true)
+        return
+      }
     }
-    if (files.length === 0) return
-    setExportFiles(files)
-    setExportModalOpen(true)
+
+    const row = selectedRow()
+    if (row) {
+      openExportForRow(row, region ?? null)
+    }
   }
 
   function openCategoryModalForRow(row: SoundRow): void {
@@ -601,11 +610,7 @@ function MainWorkstation() {
 
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
       e.preventDefault()
-      if (multiSelected().size > 0) {
-        openExportForSelection()
-      } else if (selectedRow()) {
-        openExportForRow(selectedRow()!, null)
-      }
+      openExportForSelection()
       return
     }
 
@@ -718,13 +723,7 @@ function MainWorkstation() {
         onOpenFolder={pickFolder}
         onReindex={doReindex}
         onCloseFolder={() => setFolder(null)}
-        onOpenExport={() => {
-          if (multiSelected().size > 0) {
-            openExportForSelection()
-          } else if (selectedRow()) {
-            openExportForRow(selectedRow()!, null)
-          }
-        }}
+        onOpenExport={openExportForSelection}
         onOpenSettings={() => setShowSettings(true)}
         onSelectAll={selectAllFiltered}
         onClearSelection={() => setMultiSelected(new Map())}
@@ -828,10 +827,10 @@ function MainWorkstation() {
         {/* Waveform Bottom Dock Panel - Full Width across bottom */}
         <WaveformPreview
           row={selectedRow()}
+          selectedCount={multiSelected().size > 0 ? multiSelected().size : (selectedRow() ? 1 : 0)}
           onApi={(api) => (waveApi = api)}
           onExportRequest={(region) => {
-            const row = selectedRow()
-            if (row) openExportForRow(row, region)
+            openExportForSelection(region)
           }}
         />
       </Show>

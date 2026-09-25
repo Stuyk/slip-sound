@@ -39,6 +39,7 @@ const MIN_REGION_SEC = 0.03
 
 export default function WaveformPreview(props: {
   row: SoundRow | null
+  selectedCount?: number
   onApi?: (api: WaveformApi) => void
   onExportRequest?: (region: { start: number; end: number } | null) => void
 }) {
@@ -537,7 +538,7 @@ export default function WaveformPreview(props: {
   }
 
   function requestExport(): void {
-    if (!props.row) return
+    if (!props.row && (!props.selectedCount || props.selectedCount <= 0)) return
     props.onExportRequest?.(regionBounds())
   }
 
@@ -688,10 +689,16 @@ export default function WaveformPreview(props: {
           variant="primary"
           size="sm"
           onClick={requestExport}
-          disabled={!props.row}
+          disabled={!props.row && (!props.selectedCount || props.selectedCount <= 0)}
           icon={<DownloadIcon size={13} />}
         >
-          <span>{region() ? 'Export Region…' : 'Export File…'}</span>
+          <span>
+            {region()
+              ? 'Export Region…'
+              : (props.selectedCount && props.selectedCount > 1)
+                ? `Export ${props.selectedCount} Sounds…`
+                : 'Export File…'}
+          </span>
         </Button>
       </div>
 
