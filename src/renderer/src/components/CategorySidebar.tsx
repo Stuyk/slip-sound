@@ -1,11 +1,13 @@
 import { createSignal, createMemo, createEffect, For, Show, JSX } from 'solid-js'
+import { Badge } from './ui/Badge'
+import { SearchInput } from './ui/SearchInput'
+import { IconButton } from './ui/IconButton'
 import {
   TagIcon,
   ChevronRightIcon,
+  ChevronLeftIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  XIcon,
-  SearchIcon,
   LayersIcon,
   ZapIcon,
   ActivityIcon,
@@ -26,6 +28,8 @@ export interface CategorySidebarProps {
   onSelectSubcategory: (subcategory: string) => void
   onClear: () => void
   onClose: () => void
+  onToggleOpen?: () => void
+  onOpen?: () => void
 }
 
 interface CategoryGroup {
@@ -74,30 +78,30 @@ function loadSavedWidth(): number {
 function getCategoryIcon(category: string): JSX.Element {
   const c = category.toLowerCase()
   if (c.includes('weapon') || c.includes('gun') || c.includes('shot')) {
-    return <ZapIcon size={13} class="category-item-icon" />
+    return <ZapIcon size={13} class="shrink-0 text-[#007acc]" />
   }
   if (c.includes('explos') || c.includes('impact') || c.includes('hit') || c.includes('crash')) {
-    return <ActivityIcon size={13} class="category-item-icon" />
+    return <ActivityIcon size={13} class="shrink-0 text-[#007acc]" />
   }
   if (c.includes('foley') || c.includes('cloth') || c.includes('footstep') || c.includes('step')) {
-    return <LayersIcon size={13} class="category-item-icon" />
+    return <LayersIcon size={13} class="shrink-0 text-[#007acc]" />
   }
   if (c.includes('magic') || c.includes('spell') || c.includes('fantasy')) {
-    return <StarIcon size={13} class="category-item-icon" />
+    return <StarIcon size={13} class="shrink-0 text-[#007acc]" />
   }
   if (c.includes('ui') || c.includes('button') || c.includes('menu') || c.includes('click')) {
-    return <MousePointerIcon size={13} class="category-item-icon" />
+    return <MousePointerIcon size={13} class="shrink-0 text-[#007acc]" />
   }
   if (c.includes('electronic') || c.includes('synth') || c.includes('glitch') || c.includes('ambience')) {
-    return <WaveformIcon size={13} class="category-item-icon" />
+    return <WaveformIcon size={13} class="shrink-0 text-[#007acc]" />
   }
   if (c.includes('mechanic') || c.includes('gear') || c.includes('engine') || c.includes('vehicle')) {
-    return <SlidersIcon size={13} class="category-item-icon" />
+    return <SlidersIcon size={13} class="shrink-0 text-[#007acc]" />
   }
   if (c.includes('vocal') || c.includes('voice') || c.includes('creature')) {
-    return <Volume2Icon size={13} class="category-item-icon" />
+    return <Volume2Icon size={13} class="shrink-0 text-[#007acc]" />
   }
-  return <TagIcon size={13} class="category-item-icon" />
+  return <TagIcon size={13} class="shrink-0 text-[#007acc]" />
 }
 
 export function CategorySidebar(props: CategorySidebarProps): JSX.Element {
@@ -275,85 +279,115 @@ export function CategorySidebar(props: CategorySidebarProps): JSX.Element {
   const isAllSoundsActive = () => !props.selectedCategory
 
   return (
-    <aside
-      class="category-sidebar"
-      style={{
-        width: `${width()}px`,
-        display: props.isOpen ? 'flex' : 'none'
-      }}
+    <Show
+      when={props.isOpen}
+      fallback={
+        /* Collapsed Sidebar Rail: Never fully disappears, shows vertically stacked CATEGORIES label */
+        <aside
+          id="category-sidebar-collapsed"
+          class="flex flex-col items-center justify-between w-8 min-w-[32px] h-full bg-[#26282b] border-r border-[#1c1d1f] select-none shrink-0 py-3 cursor-pointer group hover:bg-[#32353a] transition-colors"
+          onClick={() => {
+            if (props.onOpen) props.onOpen()
+            else if (props.onToggleOpen) props.onToggleOpen()
+          }}
+          title="Expand Categories (Ctrl+B)"
+        >
+          <div class="flex flex-col items-center gap-2">
+            <div class="w-6 h-6 rounded flex items-center justify-center text-[#007acc] group-hover:text-white transition-colors">
+              <TagIcon size={14} />
+            </div>
+            <div class="w-3.5 h-px bg-[#1c1d1f] group-hover:bg-[#007acc]/40 transition-colors" />
+          </div>
+
+          {/* Vertically stacked CATEGORIES text */}
+          <div class="flex-1 flex items-center justify-center my-4 overflow-hidden">
+            <span
+              id="category-sidebar-vertical-label"
+              class="font-bold text-md tracking-[0.25em] uppercase text-[#8b949e] group-hover:text-[#f0f3f6] transition-colors select-none whitespace-nowrap"
+              style={{
+                'writing-mode': 'vertical-rl',
+                'transform': 'rotate(180deg)'
+              }}
+            >
+              Categories
+            </span>
+          </div>
+
+          <div class="flex flex-col items-center gap-1.5 text-[#8b949e] group-hover:text-[#007acc] transition-colors">
+            <ChevronRightIcon size={14} />
+          </div>
+        </aside>
+      }
     >
+      <aside
+        id="category-sidebar"
+        class="relative flex flex-col h-full bg-[#26282b] border-r border-[#1c1d1f] select-none shrink-0 overflow-hidden"
+        style={{
+          width: `${width()}px`
+        }}
+      >
       {/* Sidebar Header */}
-      <div class="category-sidebar-header">
-        <div class="category-sidebar-title">
-          <TagIcon size={14} class="sidebar-title-icon" />
+      <div id="category-sidebar-header" class="h-11 min-h-[44px] px-3 bg-[#26282b] border-b border-[#1c1d1f] flex items-center justify-between shrink-0">
+        <div id="category-sidebar-title" class="flex items-center gap-1.5 font-bold text-md uppercase tracking-wider text-[#f0f3f6]">
+          <TagIcon size={14} class="shrink-0 text-[#007acc]" />
           <span>Categories</span>
-          <span class="category-count-badge tabular">{categoryGroups().length}</span>
+          <Badge variant="default" class="ml-1 text-md">{categoryGroups().length}</Badge>
         </div>
 
-        <div class="category-sidebar-actions">
-          <button
-            class="sidebar-action-btn"
-            classList={{ 'action-active': isAllExpanded() }}
-            title={isAllExpanded() ? 'Collapse all categories' : 'Expand all categories'}
+        <div id="category-sidebar-header-actions" class="flex items-center gap-1.5">
+          <IconButton
+            id="category-sidebar-toggle-all-btn"
+            size="sm"
+            active={isAllExpanded()}
+            tooltip={isAllExpanded() ? 'Collapse all categories' : 'Expand all categories'}
             onClick={toggleAll}
           >
-            <Show when={isAllExpanded()} fallback={<ChevronDownIcon size={14} />}>
-              <ChevronUpIcon size={14} />
+            <Show when={isAllExpanded()} fallback={<ChevronDownIcon size={13} />}>
+              <ChevronUpIcon size={13} />
             </Show>
-          </button>
-          <button
-            class="sidebar-action-btn"
-            title="Hide categories sidebar (Ctrl+B)"
+          </IconButton>
+          <IconButton
+            id="category-sidebar-close-btn"
+            size="sm"
+            tooltip="Collapse categories sidebar (Ctrl+B)"
             onClick={props.onClose}
           >
-            <XIcon size={13} />
-          </button>
+            <ChevronLeftIcon size={14} />
+          </IconButton>
         </div>
       </div>
 
       {/* Quick Search within Categories */}
       <Show when={categoryGroups().length > 4}>
-        <div class="category-filter-box">
-          <SearchIcon size={12} class="category-filter-icon" />
-          <input
-            type="text"
-            class="category-filter-input"
-            placeholder="Filter categories… (Esc)"
+        <div id="category-filter-container" class="px-2.5 py-1.5 border-b border-[#1c1d1f] bg-[#26282b]">
+          <SearchInput
+            id="category-filter-input"
             value={filterText()}
-            onInput={(e) => setFilterText(e.currentTarget.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape') {
-                e.preventDefault()
-                setFilterText('')
-              }
-            }}
+            onInput={setFilterText}
+            placeholder="Filter categories…"
+            onClear={() => setFilterText('')}
           />
-          <Show when={filterText()}>
-            <button
-              class="category-filter-clear"
-              onClick={() => setFilterText('')}
-              title="Clear filter (Esc)"
-            >
-              <XIcon size={11} />
-            </button>
-          </Show>
         </div>
       </Show>
 
       {/* Root "All Sounds" Item */}
-      <div class="category-sidebar-list">
+      <div id="category-sidebar-list" class="flex-1 overflow-y-auto min-h-0 dcc-scroll py-1.5 flex flex-col">
         <div
-          class="category-accordion-item all-sounds-item"
-          classList={{ active: isAllSoundsActive() }}
+          id="category-item-all-sounds"
+          class="flex items-center justify-between px-2.5 h-8 min-h-[32px] mx-1.5 rounded-[3px] cursor-pointer text-md transition-colors"
+          classList={{
+            'bg-[#007acc] text-white font-medium shadow-xs': isAllSoundsActive(),
+            'text-[#8b949e] hover:text-[#f0f3f6] hover:bg-[#32353a]': !isAllSoundsActive()
+          }}
           onClick={props.onClear}
           title={`Show all ${props.totalSounds} sounds`}
         >
-          <div class="accordion-item-inner">
-            <div class="accordion-chevron-slot">
-              <LayersIcon size={14} class="category-item-icon" />
+          <div class="flex items-center gap-2 flex-1 min-w-0">
+            <div class="w-4 h-4 flex items-center justify-center shrink-0">
+              <LayersIcon size={14} class={isAllSoundsActive() ? 'text-white' : 'text-[#007acc]'} />
             </div>
-            <span class="accordion-name">All Sounds</span>
-            <span class="accordion-count tabular">{props.totalSounds}</span>
+            <span class="truncate flex-1">All Sounds</span>
+            <span class="font-mono text-md opacity-75 tabular-nums">{props.totalSounds}</span>
           </div>
         </div>
 
@@ -361,7 +395,7 @@ export function CategorySidebar(props: CategorySidebarProps): JSX.Element {
         <For
           each={filteredGroups()}
           fallback={
-            <div class="category-empty-state">
+            <div id="category-sidebar-empty" class="p-4 text-center text-md text-[#8b949e]">
               <span>No categories match "{filterText()}"</span>
             </div>
           }
@@ -369,30 +403,32 @@ export function CategorySidebar(props: CategorySidebarProps): JSX.Element {
           {(group) => {
             const isCategoryActive = () => props.selectedCategory === group.category
             const isExpanded = () => expanded().has(group.category)
+            const catId = group.category.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 
             return (
-              <div
-                class="category-accordion-item"
-                classList={{
-                  'category-active': isCategoryActive() && !props.selectedSubcategory,
-                  'has-active-child': isCategoryActive() && Boolean(props.selectedSubcategory)
-                }}
-              >
+              <div id={`category-group-${catId}`} class="flex flex-col mx-1.5 mb-0.5">
                 {/* Category Header Row */}
                 <div
-                  class="accordion-header"
+                  id={`category-item-${catId}`}
+                  class="flex items-center gap-1 px-1 h-8 min-h-[32px] rounded-[3px] cursor-pointer text-md transition-colors group"
+                  classList={{
+                    'bg-[#007acc] text-white font-medium shadow-xs': isCategoryActive() && !props.selectedSubcategory,
+                    'bg-[#007acc]/15 text-[#f0f3f6]': isCategoryActive() && Boolean(props.selectedSubcategory),
+                    'text-[#8b949e] hover:text-[#f0f3f6] hover:bg-[#32353a]': !isCategoryActive()
+                  }}
                   onClick={() => handleCategoryClick(group.category)}
                   onDblClick={(e) => handleCategoryDblClick(group.category, e)}
                   title={`Filter by ${group.category} (${group.totalCount} sounds) - Double click to toggle`}
                 >
                   <Show
                     when={group.subcategories.length > 0}
-                    fallback={<div class="accordion-chevron-slot" />}
+                    fallback={<div class="w-6 h-6 min-w-[24px] min-h-[24px] shrink-0" />}
                   >
                     <button
+                      id={`category-toggle-subcategories-${catId}`}
                       type="button"
-                      class="accordion-chevron-btn"
-                      classList={{ expanded: isExpanded() }}
+                      class="w-6 h-6 min-w-[24px] min-h-[24px] flex items-center justify-center rounded text-current opacity-70 hover:opacity-100 hover:bg-white/10 transition-all cursor-pointer"
+                      classList={{ 'rotate-90': isExpanded() }}
                       onClick={(e) => toggleExpand(group.category, e)}
                       title={isExpanded() ? 'Collapse subcategories' : 'Expand subcategories'}
                     >
@@ -401,22 +437,27 @@ export function CategorySidebar(props: CategorySidebarProps): JSX.Element {
                   </Show>
 
                   {getCategoryIcon(group.category)}
-                  <span class="accordion-name">{group.category}</span>
-                  <span class="accordion-count tabular">{group.totalCount}</span>
+                  <span class="truncate flex-1 ml-1">{group.category}</span>
+                  <span class="font-mono text-md opacity-75 tabular-nums ml-1 pr-1">{group.totalCount}</span>
                 </div>
 
                 {/* Subcategories Accordion Content */}
                 <Show when={isExpanded() && group.subcategories.length > 0}>
-                  <div class="accordion-body">
+                  <div id={`subcategory-list-${catId}`} class="flex flex-col pl-5 pr-1 py-0.5 gap-0.5">
                     <For each={group.subcategories}>
                       {(sub) => {
                         const isSubActive = () =>
                           isCategoryActive() && props.selectedSubcategory === sub.subcategory
+                        const subId = sub.subcategory.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 
                         return (
                           <div
-                            class="subcategory-row"
-                            classList={{ active: isSubActive() }}
+                            id={`subcategory-item-${catId}-${subId}`}
+                            class="flex items-center justify-between px-2 h-7 min-h-[28px] rounded-[3px] cursor-pointer text-md transition-colors"
+                            classList={{
+                              'bg-[#007acc] text-white font-medium shadow-xs': isSubActive(),
+                              'text-[#8b949e] hover:text-[#f0f3f6] hover:bg-[#32353a]': !isSubActive()
+                            }}
                             onClick={(e) => {
                               e.stopPropagation()
                               if (isSubActive()) {
@@ -430,9 +471,9 @@ export function CategorySidebar(props: CategorySidebarProps): JSX.Element {
                             }}
                             title={`Filter by ${group.category} > ${sub.subcategory} (${sub.count} sounds)`}
                           >
-                            <span class="subcategory-dot" />
-                            <span class="subcategory-name">{sub.subcategory}</span>
-                            <span class="subcategory-count tabular">{sub.count}</span>
+                            <span class="w-1.5 h-1.5 rounded-full bg-current opacity-40 mr-2 shrink-0" />
+                            <span class="truncate flex-1">{sub.subcategory}</span>
+                            <span class="font-mono text-md opacity-75 tabular-nums ml-1">{sub.count}</span>
                           </div>
                         )
                       }}
@@ -447,11 +488,13 @@ export function CategorySidebar(props: CategorySidebarProps): JSX.Element {
 
       {/* Draggable resize handle */}
       <div
-        class="sidebar-resize-handle"
+        id="category-sidebar-resize-handle"
+        class="absolute top-0 right-0 w-1 h-full cursor-col-resize hover:bg-[#007acc] transition-colors z-10"
         onMouseDown={onResizeMouseDown}
         title="Drag to resize sidebar"
       />
-    </aside>
+      </aside>
+    </Show>
   )
 }
 

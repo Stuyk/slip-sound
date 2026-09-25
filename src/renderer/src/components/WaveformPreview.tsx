@@ -1,5 +1,7 @@
 import { createEffect, createSignal, onCleanup, onMount } from 'solid-js'
 import type { SoundRow } from '../../../preload/index'
+import { Button } from './ui/Button'
+import { IconButton } from './ui/IconButton'
 import {
   PlayIcon,
   PauseIcon,
@@ -170,11 +172,13 @@ export default function WaveformPreview(props: {
     const hasSel =
       start !== null && end !== null && dur > 0 && Math.abs(end - start) >= MIN_REGION_SEC
 
+    const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent-color').trim() || '#007acc'
+
     // Draw selection background
     if (hasSel) {
       const x1 = (Math.min(start!, end!) / dur) * width
       const x2 = (Math.max(start!, end!) / dur) * width
-      ctx.fillStyle = 'rgba(245, 158, 11, 0.15)'
+      ctx.fillStyle = 'rgba(0, 122, 204, 0.25)'
       ctx.fillRect(x1, 0, x2 - x1, height)
     }
 
@@ -191,11 +195,11 @@ export default function WaveformPreview(props: {
         const played = i / p.length <= playedFrac
 
         if (played) {
-          ctx.fillStyle = '#3b82f6' // Crisp flat blue playhead
+          ctx.fillStyle = accentColor
         } else if (inSel) {
-          ctx.fillStyle = '#f59e0b' // Gold selection region
+          ctx.fillStyle = accentColor
         } else {
-          ctx.fillStyle = '#3d3d48' // Flat dark neutral
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.22)'
         }
 
         const w = Math.max(1, barWidth - 1)
@@ -207,7 +211,7 @@ export default function WaveformPreview(props: {
     if (hasSel) {
       const x1 = (Math.min(start!, end!) / dur) * width
       const x2 = (Math.max(start!, end!) / dur) * width
-      ctx.strokeStyle = '#f59e0b'
+      ctx.strokeStyle = accentColor
       ctx.lineWidth = 1.5
       ctx.beginPath()
       ctx.moveTo(x1, 0)
@@ -575,28 +579,32 @@ export default function WaveformPreview(props: {
   const region = (): { start: number; end: number } | null => regionBounds()
 
   return (
-    <div class="waveform-dock">
+    <div id="waveform-preview-dock" class="bg-[#26282b] border-t border-[#1c1d1f] flex flex-col shrink-0 select-none z-10">
       {/* Top Waveform Header Bar */}
-      <div class="waveform-toolbar">
-        <div class="waveform-left-controls">
-          <button
-            class="play-toggle-btn"
+      <div id="waveform-header-bar" class="h-11 min-h-[44px] px-3.5 bg-[#26282b] border-b border-[#1c1d1f] flex items-center justify-between gap-3 shrink-0">
+        <div id="waveform-info-group" class="flex items-center gap-3 min-w-0 flex-1">
+          <Button
+            id="waveform-play-pause-btn"
+            variant="primary"
+            size="sm"
             onClick={togglePlay}
             disabled={!props.row}
+            icon={playing() ? <PauseIcon size={14} /> : <PlayIcon size={14} />}
             title={playing() ? 'Pause (Space)' : 'Play (Space)'}
           >
-            {playing() ? <PauseIcon size={16} /> : <PlayIcon size={16} />}
-          </button>
+            <span>{playing() ? 'Pause' : 'Play'}</span>
+          </Button>
 
-          <FileAudioIcon size={16} class="text-zinc-500" />
-          <span class="waveform-title" title={props.row?.path}>
+          <FileAudioIcon size={15} class="text-[#007acc] shrink-0" />
+          <span id="waveform-sound-title" class="text-md font-medium text-[#f0f3f6] truncate max-w-[400px]" title={props.row?.path}>
             {props.row?.filename ?? 'No sound selected'}
           </span>
 
           {region() && (
-            <span class="region-chip">
+            <span id="waveform-region-chip" class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-[3px] bg-[#007acc]/15 border border-[#007acc]/30 text-md font-mono text-[#f0f3f6] shrink-0">
               <span
-                class="region-drag-handle"
+                id="waveform-region-drag-handle"
+                class="cursor-grab active:cursor-grabbing text-[#007acc] hover:text-white transition-colors flex items-center"
                 draggable={!dragFileBusy() && !!dragFilePath()}
                 onDragStart={onRegionDragStart}
                 title={
@@ -609,11 +617,13 @@ export default function WaveformPreview(props: {
               >
                 {dragFileBusy() ? <RefreshCwIcon size={12} class="animate-spin" /> : <GripVerticalIcon size={12} />}
               </span>
-              <span>
+              <span id="waveform-region-time-bounds">
                 {formatRegionSec(region()!.start)} – {formatRegionSec(region()!.end)}
               </span>
               <button
-                class="region-clear-btn"
+                id="waveform-region-clear-btn"
+                type="button"
+                class="w-4 h-4 flex items-center justify-center rounded text-[#8b949e] hover:text-white transition-colors cursor-pointer"
                 title="Clear region selection"
                 onClick={() => {
                   setSelStart(null)
@@ -621,63 +631,72 @@ export default function WaveformPreview(props: {
                   setDragFilePath(null)
                 }}
               >
-                <XIcon size={13} />
+                <XIcon size={12} />
               </button>
             </span>
           )}
         </div>
 
+        {/* Volume control slammed to the right on the same line as the play button */}
+        <div id="waveform-volume-control" class="flex items-center gap-2.5 px-3 h-8 min-h-[32px] rounded-[3px] bg-[#1e2022] border border-[#1c1d1f] shrink-0" title="Volume — Double-click slider to reset to 100%">
+          <IconButton
+            id="waveform-mute-btn"
+            size="xs"
+            onClick={toggleMute}
+            tooltip={muted() ? 'Unmute' : 'Mute'}
+          >
+            {muted() || volume() === 0 ? <VolumeXIcon size={14} /> : <Volume2Icon size={14} />}
+          </IconButton>
+          <input
+            id="waveform-volume-slider"
+            type="range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={muted() ? 0 : volume()}
+            onInput={(e) => updateVolume(parseFloat(e.currentTarget.value))}
+            onDblClick={() => updateVolume(1)}
+            class="w-36 md:w-44 accent-[#007acc] h-2 cursor-pointer"
+          />
+          <span id="waveform-volume-readout" class="font-mono text-md text-[#8b949e] tabular-nums w-12 text-right select-none">
+            {muted() ? '0%' : `${Math.round(volume() * 100)}%`}
+          </span>
+        </div>
       </div>
 
-      {/* Waveform Canvas Area */}
-      <div class="waveform-canvas-wrap" ref={canvasWrap} onMouseDown={onPointerDown}>
-        <canvas ref={canvas} class="waveform-canvas-element" />
+      {/* Waveform Canvas Area - Extra breathing room & height */}
+      <div id="waveform-canvas-container" class="relative w-full h-32 bg-[#1e2022] cursor-crosshair overflow-hidden px-2 py-1.5" ref={canvasWrap} onMouseDown={onPointerDown}>
+        <canvas id="waveform-canvas" ref={canvas} class="w-full h-full block" />
         {loading() && (
-          <div class="waveform-loading-overlay">
-            <RefreshCwIcon size={16} class="animate-spin text-blue-400" />
+          <div id="waveform-loading-overlay" class="absolute inset-0 flex items-center justify-center gap-2 bg-[#1e2022]/80 backdrop-blur-xs text-md text-[#8b949e]">
+            <RefreshCwIcon size={16} class="animate-spin text-[#007acc]" />
             <span>Generating waveform…</span>
           </div>
         )}
       </div>
 
       {/* Playback / Export Sub-Toolbar */}
-      <div class="export-dock">
-        <div class="timecode-display tabular">
-          <span class="timecode-current">{formatTime(progress())}</span>
-          <span style={{ margin: '0 4px', color: 'var(--text-faint)' }}>/</span>
+      <div id="waveform-footer-toolbar" class="h-11 min-h-[44px] px-3.5 bg-[#26282b] border-t border-[#1c1d1f] flex items-center justify-between gap-3 shrink-0">
+        <div id="waveform-time-readout" class="font-mono text-md text-[#8b949e] tabular-nums flex items-center gap-1">
+          <span class="text-[#007acc] font-medium">{formatTime(progress())}</span>
+          <span class="text-[#8b949e]/40 mx-0.5">/</span>
           <span>{formatTime(duration())}</span>
         </div>
 
-        <div class="volume-control" title="Volume">
-          <button
-            class="btn-flat btn-ghost btn-icon-only"
-            onClick={toggleMute}
-            style={{ width: '28px', height: '28px' }}
-          >
-            {muted() || volume() === 0 ? <VolumeXIcon size={16} /> : <Volume2Icon size={16} />}
-          </button>
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={muted() ? 0 : volume()}
-            onInput={(e) => updateVolume(parseFloat(e.currentTarget.value))}
-            class="volume-slider"
-          />
-        </div>
-
-        <button
-          class="btn-flat btn-primary export-dock-btn"
+        <Button
+          id="waveform-export-btn"
+          variant="primary"
+          size="sm"
           onClick={requestExport}
           disabled={!props.row}
+          icon={<DownloadIcon size={13} />}
         >
-          <DownloadIcon size={14} />
           <span>{region() ? 'Export Region…' : 'Export File…'}</span>
-        </button>
+        </Button>
       </div>
 
       <audio
+        id="waveform-audio-element"
         ref={audioEl}
         preload="auto"
         onPlay={onAudioPlay}

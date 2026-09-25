@@ -649,6 +649,27 @@ export function ZapIcon(props: IconProps): JSX.Element {
   )
 }
 
+export function ChevronLeftIcon(props: IconProps): JSX.Element {
+  const s = () => props.size ?? defaultProps.size
+  const sw = () => props.strokeWidth ?? defaultProps.strokeWidth
+  return (
+    <svg
+      width={s()}
+      height={s()}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width={sw()}
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class={props.class}
+      style={props.style}
+    >
+      <path d="m15 18-6-6 6-6" />
+    </svg>
+  )
+}
+
 export function ChevronRightIcon(props: IconProps): JSX.Element {
   const s = () => props.size ?? defaultProps.size
   const sw = () => props.strokeWidth ?? defaultProps.strokeWidth

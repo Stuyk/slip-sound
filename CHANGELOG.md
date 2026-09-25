@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.0.0
+
+### Changed
+
+- Layout is now DCC based, and standardized across the whole app.
+- TailwindCSS is now fully utilized.
+- Everything has IDs now.
+- Reusable components applied everywhere.
+
 ## v1.2.0
 
 ### Fixed
