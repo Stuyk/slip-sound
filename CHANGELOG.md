@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.2.0
+
+### Fixed
+
+- Loud static bursts on seek/loop: audio protocol now serves HTTP Range requests (206 partial content) instead of always returning the whole file.
+- Region playback: all play paths (auto-play, double-click, Space) now start inside the selected region.
+- Regions ending at the end of the file now loop instead of stopping.
+- Region loop point is timer-driven, so playback no longer overshoots the region end (especially when the window is unfocused).
+- Region highlight and loop now use the same minimum length (0.03s).
+- Space no longer stops working after using the volume slider.
+- Moving the volume slider while muted now unmutes.
+- Deselecting a sound no longer triggers a bogus audio load.
+
 ## v1.1.1
 
 ### Added

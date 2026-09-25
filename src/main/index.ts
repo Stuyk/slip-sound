@@ -1,7 +1,8 @@
-import { app, shell, BrowserWindow, ipcMain, dialog, protocol, WebContents, nativeImage, net } from 'electron'
+import { app, shell, BrowserWindow, ipcMain, dialog, protocol, WebContents, nativeImage } from 'electron'
 import { join, basename, extname } from 'path'
-import { pathToFileURL } from 'url'
-import { mkdtemp } from 'fs/promises'
+import { mkdtemp, stat } from 'fs/promises'
+import { createReadStream, existsSync } from 'fs'
+import { Readable } from 'stream'
 import { tmpdir } from 'os'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import type { DatabaseSync } from 'node:sqlite'
@@ -31,7 +32,6 @@ import {
   setAutoCategorizationEnabled
 } from './prefs'
 import { exportRegion, generateExportFilename, ExportFormat, BitDepth, NamingMode } from './export'
-import { existsSync } from 'fs'
 import { startMcpServer, McpServerHandle, McpDeps } from './mcp/server'
 import { writeMcpConnectionInfo, clearMcpConnectionInfo } from './mcp/connectionInfo'
 
@@ -43,6 +43,66 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 
+
+const AUDIO_MIME: Record<string, string> = {
+  '.wav': 'audio/wav',
+  '.mp3': 'audio/mpeg',
+  '.ogg': 'audio/ogg',
+  '.flac': 'audio/flac',
+  '.aiff': 'audio/aiff',
+  '.aif': 'audio/aiff',
+  '.m4a': 'audio/mp4'
+}
+
+// Serves a local audio file with proper HTTP Range support. The <audio>
+// element issues `Range: bytes=N-` requests whenever it seeks (click-to-seek,
+// region looping). Proxying to net.fetch(file://) ignores the Range header and
+// returns the whole file from byte 0, so the media pipeline decodes header /
+// misaligned PCM bytes as if they started at offset N — heard as a burst of
+// extremely loud static.
+async function serveAudioFile(filePath: string, rangeHeader: string | null): Promise<Response> {
+  let size: number
+  try {
+    const st = await stat(filePath)
+    if (!st.isFile()) return new Response(null, { status: 404 })
+    size = st.size
+  } catch {
+    return new Response(null, { status: 404 })
+  }
+
+  const headers: Record<string, string> = {
+    'Content-Type': AUDIO_MIME[extname(filePath).toLowerCase()] ?? 'application/octet-stream',
+    'Accept-Ranges': 'bytes'
+  }
+
+  const toBody = (start: number, end: number): ReadableStream =>
+    Readable.toWeb(createReadStream(filePath, { start, end })) as ReadableStream
+
+  const match = rangeHeader ? /^bytes=(\d*)-(\d*)$/.exec(rangeHeader.trim()) : null
+  if (!match || (match[1] === '' && match[2] === '')) {
+    headers['Content-Length'] = String(size)
+    return new Response(size > 0 ? toBody(0, size - 1) : null, { status: 200, headers })
+  }
+
+  let start: number
+  let end: number
+  if (match[1] === '') {
+    // Suffix range: last N bytes
+    start = Math.max(0, size - parseInt(match[2], 10))
+    end = size - 1
+  } else {
+    start = parseInt(match[1], 10)
+    end = match[2] === '' ? size - 1 : Math.min(parseInt(match[2], 10), size - 1)
+  }
+
+  if (start >= size || start > end) {
+    return new Response(null, { status: 416, headers: { 'Content-Range': `bytes */${size}` } })
+  }
+
+  headers['Content-Range'] = `bytes ${start}-${end}/${size}`
+  headers['Content-Length'] = String(end - start + 1)
+  return new Response(toBody(start, end), { status: 206, headers })
+}
 
 let currentDb: DatabaseSync | null = null
 let currentFolder: string | null = null
@@ -184,7 +244,7 @@ app.whenReady().then(() => {
     if (process.platform === 'win32' && filePath.startsWith('/') && filePath[2] === ':') {
       filePath = filePath.slice(1)
     }
-    return net.fetch(pathToFileURL(filePath).toString())
+    return serveAudioFile(filePath, request.headers.get('range'))
   })
 
   ipcMain.handle('folder:pick-and-open', async (event) => {

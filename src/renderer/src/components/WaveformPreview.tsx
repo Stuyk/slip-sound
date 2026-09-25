@@ -32,6 +32,8 @@ function formatRegionSec(s: number): string {
 }
 
 const DRAG_THRESHOLD_PX = 4
+// Shortest selection treated as a playable/loopable region, in seconds.
+const MIN_REGION_SEC = 0.03
 
 export default function WaveformPreview(props: {
   row: SoundRow | null
@@ -66,6 +68,7 @@ export default function WaveformPreview(props: {
   let audioCtx: AudioContext | undefined
   let currentToken = 0
   let rafId: number | undefined
+  let loopTimer: ReturnType<typeof setTimeout> | undefined
   let lastLoadedPath = ''
   let loadDebounceTimer: ReturnType<typeof setTimeout> | undefined
   let currentAbortController: AbortController | null = null
@@ -164,7 +167,8 @@ export default function WaveformPreview(props: {
 
     const start = selStart()
     const end = selEnd()
-    const hasSel = start !== null && end !== null && dur > 0 && Math.abs(end - start) >= 0.02
+    const hasSel =
+      start !== null && end !== null && dur > 0 && Math.abs(end - start) >= MIN_REGION_SEC
 
     // Draw selection background
     if (hasSel) {
@@ -259,7 +263,9 @@ export default function WaveformPreview(props: {
       cancelAnimationFrame(rafId!)
       if (audioEl) {
         audioEl.pause()
-        audioEl.src = ''
+        // src = '' resolves to the page URL and triggers a failed load.
+        audioEl.removeAttribute('src')
+        audioEl.load()
         setProgress(0)
         setPlaying(false)
       }
@@ -302,7 +308,7 @@ export default function WaveformPreview(props: {
     if (s === null || e === null) return null
     const start = Math.min(s, e)
     const end = Math.max(s, e)
-    if (end - start < 0.03) return null
+    if (end - start < MIN_REGION_SEC) return null
     return { start, end }
   }
 
@@ -336,14 +342,24 @@ export default function WaveformPreview(props: {
     if (path) window.api.startDrag([path])
   }
 
+  // Starts playback, snapping into the selected region first if the playhead
+  // sits outside it (e.g. after the file ended, or paused before the region).
+  function startPlayback(): void {
+    if (!audioEl) return
+    const region = regionBounds()
+    if (
+      region &&
+      (audioEl.ended || audioEl.currentTime < region.start || audioEl.currentTime >= region.end)
+    ) {
+      audioEl.currentTime = region.start
+    }
+    audioEl.play().catch(() => {})
+  }
+
   function togglePlay(): void {
     if (!audioEl || !props.row) return
     if (audioEl.paused) {
-      const region = regionBounds()
-      if (region && (audioEl.currentTime < region.start || audioEl.currentTime >= region.end)) {
-        audioEl.currentTime = region.start
-      }
-      audioEl.play().catch(() => {})
+      startPlayback()
     } else {
       audioEl.pause()
     }
@@ -386,7 +402,7 @@ export default function WaveformPreview(props: {
     if (!audioEl) return
 
     const endTime = timeFromEvent(e)
-    const isDrag = dragMoved && Math.abs(endTime - dragStartTime) >= 0.03
+    const isDrag = dragMoved && Math.abs(endTime - dragStartTime) >= MIN_REGION_SEC
 
     if (!isDrag) {
       // plain click: clear any region and seek/play from that point
@@ -402,6 +418,7 @@ export default function WaveformPreview(props: {
       setSelEnd(eTime)
       audioEl.currentTime = s
       audioEl.play().catch(() => {})
+      scheduleLoopCheck()
       prepareRegionDragFile({ start: s, end: eTime })
     }
   }
@@ -420,9 +437,30 @@ export default function WaveformPreview(props: {
     if (region && audioEl.currentTime >= region.end) {
       audioEl.currentTime = region.start
       setProgress(region.start)
+      scheduleLoopCheck()
       return true
     }
     return false
+  }
+
+  // Precise loop point: a timer set for exactly when the playhead reaches the
+  // region end. rAF only checks every ~16ms (and stops when the window is
+  // hidden), timeupdate only every ~250ms, so relying on them alone lets
+  // playback audibly overshoot the region end before looping. Re-armed on
+  // every play/seek/loop; enforceRegionLoop re-reads the region when it fires,
+  // so a stale timer after the region changes is harmless.
+  function scheduleLoopCheck(): void {
+    clearTimeout(loopTimer)
+    if (!audioEl || audioEl.paused) return
+    const region = regionBounds()
+    if (!region) return
+    const remaining = (region.end - audioEl.currentTime) / (audioEl.playbackRate || 1)
+    loopTimer = setTimeout(
+      () => {
+        if (!enforceRegionLoop()) scheduleLoopCheck()
+      },
+      Math.max(0, remaining * 1000)
+    )
   }
 
   function playheadTick(): void {
@@ -445,14 +483,23 @@ export default function WaveformPreview(props: {
   function onAudioPause(): void {
     setPlaying(false)
     cancelAnimationFrame(rafId!)
+    clearTimeout(loopTimer)
     if (audioEl) setProgress(audioEl.currentTime)
   }
 
   function onAudioEnded(): void {
+    const region = regionBounds()
+    if (region && audioEl) {
+      // Region runs to the very end of the file: the element hits 'ended'
+      // before any region-end check can fire, so loop from here instead.
+      audioEl.currentTime = region.start
+      setProgress(region.start)
+      audioEl.play().catch(() => {})
+      return
+    }
     setPlaying(false)
     cancelAnimationFrame(rafId!)
-    const region = regionBounds()
-    setProgress(region ? region.start : 0)
+    setProgress(0)
   }
 
   function onAudioTimeUpdate(): void {
@@ -469,6 +516,9 @@ export default function WaveformPreview(props: {
 
   function updateVolume(val: number): void {
     setVolume(val)
+    // Dragging the slider while muted should unmute, otherwise the slider
+    // moves but playback stays silent.
+    if (muted() && val > 0) setMuted(false)
     if (audioEl) {
       audioEl.volume = muted() ? 0 : val
     }
@@ -492,13 +542,7 @@ export default function WaveformPreview(props: {
   onMount(() => {
     props.onApi?.({
       togglePlay,
-      play: () => {
-        if (audioEl) {
-          audioEl.play().catch(() => {})
-          cancelAnimationFrame(rafId!)
-          rafId = requestAnimationFrame(playheadTick)
-        }
-      },
+      play: startPlayback,
       pause: () => {
         if (audioEl) {
           audioEl.pause()
@@ -516,6 +560,7 @@ export default function WaveformPreview(props: {
 
   onCleanup(() => {
     cancelAnimationFrame(rafId!)
+    clearTimeout(loopTimer)
     clearTimeout(loadDebounceTimer)
     if (currentAbortController) {
       currentAbortController.abort()
@@ -637,6 +682,8 @@ export default function WaveformPreview(props: {
         preload="auto"
         onPlay={onAudioPlay}
         onPause={onAudioPause}
+        onPlaying={scheduleLoopCheck}
+        onSeeked={scheduleLoopCheck}
         onTimeUpdate={onAudioTimeUpdate}
         onLoadedMetadata={() => {
           if (audioEl && isFinite(audioEl.duration) && audioEl.duration > 0) {

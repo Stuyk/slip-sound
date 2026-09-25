@@ -527,7 +527,13 @@ export default function App() {
 
   function onKeyDown(e: KeyboardEvent): void {
     const active = document.activeElement
-    const isInput = active?.tagName === 'INPUT' || active?.tagName === 'SELECT'
+    // Sliders/checkboxes keep focus after a click but don't take typed keys, so
+    // they must not swallow shortcuts (e.g. Space stopped toggling playback
+    // after touching the volume slider).
+    const isInput =
+      (active?.tagName === 'INPUT' &&
+        !['range', 'checkbox', 'radio', 'button'].includes((active as HTMLInputElement).type)) ||
+      active?.tagName === 'SELECT'
 
     // Toggle Help guide with '?' or 'F1'
     if ((e.key === '?' || e.key === 'F1') && !isInput) {
