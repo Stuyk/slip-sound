@@ -43,6 +43,8 @@ Every folder you open gets its own SQLite database, saved right at that folder's
 - **Favorites:** Star sounds, filter to favorites only.
 - **Waveform Preview:** Click-to-seek, auto-play toggle, drag to select and loop a region.
 - **Region Export & Drag-Out:** Export just the selected region, or drag it straight into another app.
+- **Slicer:** Cut one sound into many files. Drag out regions, tap `M` while it plays to mark start/end, or auto-detect sounds between silences, then export every slice in one go with its own name.
+- **Seamless Loop:** Pick a region and crossfade its tail over its head so it repeats with no click or jump. A/B the result against the raw loop while you tweak the crossfade, then export it like any other sound.
 - **DAW Drag & Drop:** Drag one file or a whole multi-selection into Reaper, Ableton, FL Studio, Godot, Unity, etc.
 - **Batch Exporter:** WAV (16/24/32-bit) or OGG Vorbis, any sample rate, auto-numbered or lettered output names.
 - **Reveal in Folder:** Jump to any file in your system file manager.
@@ -89,12 +91,59 @@ Point it at a sample folder (`Ctrl+O`). It indexes automatically and caches loca
 | `Ctrl` + `O` | Open folder |
 | `Ctrl` + `B` | Toggle category sidebar |
 | `Ctrl` + `E` | Export selection / region |
+| `Ctrl` + `K` | Open the Slicer for the selected sound |
+| `Ctrl` + `L` | Open the Seamless Loop tool for the selected sound |
 | `Alt` + `A` | Toggle auto-play |
 | `?` | Interactive help guide |
 
 <p align="center">
   <img src="screenshots/06-shortcuts-guide.png" alt="Keyboard shortcuts guide" width="800" />
 </p>
+
+## Slicer
+
+Got one file with a dozen hits, footsteps, or one-shots in it? Select it and hit `Ctrl+K` (or **Slice…** under the waveform) to cut it into separate files.
+
+<p align="center">
+  <img src="screenshots/07-slicer.png" alt="Slicer with ten auto-detected footstep slices" width="800" />
+</p>
+
+- **Drag** across empty waveform to add a slice. Drag a slice's edges to trim it, or its middle to move it.
+- **Tap `M`** while it plays to mark a slice start, then `M` again to mark the end. Mark by ear in real time.
+- **Auto-Detect** finds every sound between silences. Tune the threshold (dB) and minimum gap (ms) if it splits too much or too little.
+- Name each slice (or keep the default `<file>_01`, `<file>_02`, …), fine-tune start/end by typing exact times, then **Export** them all at once through the normal export dialog.
+
+Slices stick around per file until you close the app.
+
+| Key | Action |
+| --- | --- |
+| `Space` | Play / stop (loops the selected slice) |
+| `M` | Mark slice start / end |
+| `←` / `→` | Step through slices |
+| `Del` | Remove selected slice |
+| `L` | Toggle looping |
+| `Ctrl` + `Z` / `Ctrl` + `Shift` + `Z` | Undo / redo |
+| `Ctrl` + `Wheel`, `+` / `-` / `0` | Zoom in / out / fit |
+| `Ctrl` + `E` | Export slices |
+
+## Seamless Loop
+
+Turn any stretch of audio into a loop that repeats without a click. Select a sound (optionally drag a region first) and hit `Ctrl+L` (or **Loop…** under the waveform).
+
+<p align="center">
+  <img src="screenshots/08-seamless-loop.png" alt="Seamless Loop crossfading a drone's tail over its head" width="800" />
+</p>
+
+Pick the loop region, then set the crossfade. The last part of the region (the tail) gets blended over the start (the head), so the end flows straight back into the beginning. The loop comes out shorter by the crossfade length. **Equal Power** works best for ambiences and noise, **Linear** for tonal or rhythmic stuff.
+
+The result view shows the loop played twice with the loop point marked, so you can see the seam. Hit `B` while it plays to flip between the seamless version and the raw region and hear the difference. Export goes through the normal export dialog, so any format, sample rate, or bit depth works.
+
+| Key | Action |
+| --- | --- |
+| `Space` | Play / stop the loop |
+| `B` | A/B: seamless vs. original |
+| `Ctrl` + `Wheel`, `+` / `-` / `0` | Zoom in / out / fit |
+| `Ctrl` + `E` | Export loop |
 
 ## MCP Server
 

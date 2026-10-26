@@ -1,6 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain, dialog, protocol, WebContents, nativeImage } from 'electron'
 import { join, basename, extname } from 'path'
-import { mkdtemp, stat } from 'fs/promises'
+import { mkdtemp, stat, writeFile } from 'fs/promises'
 import { createReadStream, existsSync } from 'fs'
 import { Readable } from 'stream'
 import { tmpdir } from 'os'
@@ -31,7 +31,7 @@ import {
   getAutoCategorizationEnabled,
   setAutoCategorizationEnabled
 } from './prefs'
-import { exportRegion, generateExportFilename, ExportFormat, BitDepth, NamingMode } from './export'
+import { exportRegion, generateExportFilename, sanitizeStem, ExportFormat, BitDepth, NamingMode } from './export'
 import { startMcpServer, McpServerHandle, McpDeps } from './mcp/server'
 import { writeMcpConnectionInfo, clearMcpConnectionInfo } from './mcp/connectionInfo'
 
@@ -336,6 +336,8 @@ app.whenReady().then(() => {
     sourcePath: string
     start?: number
     end?: number
+    // Output stem override (e.g. a named slice); used by "keep original" naming.
+    name?: string
   }
   interface ExportBatchParams {
     files: ExportBatchFile[]
@@ -372,7 +374,7 @@ app.whenReady().then(() => {
 
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
-      const originalStem = basename(file.sourcePath, extname(file.sourcePath))
+      const originalStem = sanitizeStem(file.name) ?? basename(file.sourcePath, extname(file.sourcePath))
       let stem = generateExportFilename(originalStem, i, files.length, naming, baseName)
 
       // Guard against filename collisions (e.g. two source files that share
@@ -426,6 +428,20 @@ app.whenReady().then(() => {
       return destPath
     }
   )
+
+  // Audio rendered in the renderer (e.g. a seamless loop) lands in a fresh temp
+  // dir so it can go through the normal export pipeline like any source file.
+  const MAX_TEMP_WAV_BYTES = 2 * 1024 * 1024 * 1024
+  ipcMain.handle('sounds:write-temp-wav', async (_e, data: unknown, stem: unknown) => {
+    if (!(data instanceof Uint8Array) || data.byteLength > MAX_TEMP_WAV_BYTES) {
+      throw new Error('Invalid audio data')
+    }
+    const dir = await mkdtemp(join(tmpdir(), 'slip-sound-'))
+    const name = sanitizeStem(typeof stem === 'string' ? stem : undefined) ?? 'audio'
+    const destPath = join(dir, `${name}.wav`)
+    await writeFile(destPath, data)
+    return destPath
+  })
 
   ipcMain.on('drag:start', (event, filePaths: string[]) => {
     if (filePaths.length === 0) return

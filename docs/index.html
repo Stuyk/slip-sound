@@ -146,6 +146,18 @@
       width: 14px;
     }
 
+    .tool-shot { margin: 0 0 32px; }
+    .tool-shot img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      box-shadow: 0 24px 60px -20px rgba(0, 0, 0, 0.6);
+    }
+    .tool-shot figcaption { margin-top: 12px; font-size: 15px; color: var(--dim); }
+    .tool-shot figcaption b { color: var(--text); font-weight: 500; margin-right: 4px; }
+
     /* sections */
     section { padding: 0 0 72px; }
     .sec-head > *, .intro > * { min-width: 0; }
@@ -302,6 +314,7 @@
       </a>
       <nav>
         <a href="#features">Features</a>
+        <a href="#tools">Tools</a>
         <a href="#shortcuts">Shortcuts</a>
         <a href="#mcp">MCP</a>
         <a href="https://github.com/Stuyk/slip-sound">GitHub</a>
@@ -337,11 +350,12 @@
     <figure class="shot" style="margin:0 0 12px">
       <img src="screenshots/screenshot-01.png" width="1543" height="871" alt="Slip Sound searching 178,825 sounds for 'bell', with a region selected on the waveform" />
       <span class="pin" style="left:8%;top:28%">1</span>
-      <span class="pin" style="left:30%;top:6.2%">2</span>
-      <span class="pin" style="left:57%;top:6.2%">3</span>
-      <span class="pin" style="left:57.5%;top:20.2%">4</span>
+      <span class="pin" style="left:30%;top:2.4%">2</span>
+      <span class="pin" style="left:57%;top:2.4%">3</span>
+      <span class="pin" style="left:57.5%;top:16.4%">4</span>
       <span class="pin" style="left:23.5%;top:85%">5</span>
       <span class="pin" style="left:97%;top:88%">6</span>
+      <span class="pin" style="left:82%;top:88%">7</span>
     </figure>
     <ol class="legend">
       <li><b>1</b>Categories with live counts, auto-tagged on index</li>
@@ -350,19 +364,22 @@
       <li><b>4</b>Click a category chip to reassign it</li>
       <li><b>5</b>Drag across the waveform to select and loop a region</li>
       <li><b>6</b>Export only that region, or drag it into your DAW</li>
+      <li><b>7</b>Slice it into many files, or turn it into a seamless loop</li>
     </ol>
 
     <section id="features">
       <div class="sec-head">
         <h2><span class="n">01</span>Features</h2>
         <div>
-          <p class="lead">Browse, audition, trim, export. The things you do fifty times an hour are one key or one drag.</p>
+          <p class="lead">Browse, audition, trim, slice, loop, export. The things you do fifty times an hour are one key or one drag.</p>
           <dl class="feats">
             <div><dt>Instant search</dt><dd>Filter by name, channels, duration, favorites, or category. Results update as you type.</dd></div>
             <div><dt>Auto-categorize</dt><dd>Files are tagged on index from their names and paths. Can be turned off in Settings.</dd></div>
             <div><dt>Manual overrides</dt><dd>Reassign or clear any category. Your changes survive reindexes.</dd></div>
             <div><dt>Waveform preview</dt><dd>Click to seek, drag to select, loop the selection. Auto-play as you arrow through the list.</dd></div>
             <div><dt>Region export</dt><dd>Export just the selected slice, or drag it straight out of the app.</dd></div>
+            <div><dt>Slicer</dt><dd>Cut one file into many. Drag out slices, tap <kbd>M</kbd> while it plays, or auto-detect sounds between silences.</dd></div>
+            <div><dt>Seamless loop</dt><dd>Crossfade a region's tail over its head so it repeats with no click. A/B it against the raw loop.</dd></div>
             <div><dt>DAW drag &amp; drop</dt><dd>Drag one file or a whole selection into Reaper, Ableton, FL Studio, Godot, Unity.</dd></div>
             <div><dt>Batch exporter</dt><dd>WAV at 16, 24 or 32-bit, or OGG Vorbis. Any sample rate. Numbered or lettered output names.</dd></div>
             <div><dt>Favorites</dt><dd>Star sounds and filter down to just those.</dd></div>
@@ -375,9 +392,26 @@
       </div>
     </section>
 
+    <section id="tools">
+      <div class="sec-head">
+        <h2><span class="n">02</span>Tools</h2>
+        <div>
+          <p class="lead">Two editors for the jobs a browser usually sends you to a DAW for.</p>
+          <figure class="tool-shot">
+            <img src="screenshots/07-slicer.png" width="1304" height="665" loading="lazy" alt="The Slicer with ten auto-detected footstep slices, each with its own output name and start/end time" />
+            <figcaption><b>Slicer</b> <kbd>Ctrl</kbd> <kbd>K</kbd> &middot; One file of footsteps, hits or one-shots in, a folder of named files out. Auto-detect splits on silence; drag edges to trim, <kbd>M</kbd> to mark by ear, undo anything.</figcaption>
+          </figure>
+          <figure class="tool-shot">
+            <img src="screenshots/08-seamless-loop.png" width="1304" height="560" loading="lazy" alt="The Seamless Loop editor crossfading the tail of a drone over its head, with the result shown twice around the loop point" />
+            <figcaption><b>Seamless loop</b> <kbd>Ctrl</kbd> <kbd>L</kbd> &middot; Pick a region and a crossfade length. The tail blends over the head so the end runs straight back into the start. Hit <kbd>B</kbd> to hear it against the raw loop.</figcaption>
+          </figure>
+        </div>
+      </div>
+    </section>
+
     <section id="how">
       <div class="sec-head">
-        <h2><span class="n">02</span>How it stores things</h2>
+        <h2><span class="n">03</span>How it stores things</h2>
         <div>
           <p class="lead">The index lives inside the folder it describes.</p>
           <div class="tree"><span class="hl">D:/Samples/</span>
@@ -392,7 +426,7 @@
 
     <section id="shortcuts">
       <div class="sec-head">
-        <h2><span class="n">03</span>Shortcuts</h2>
+        <h2><span class="n">04</span>Shortcuts</h2>
         <dl class="keys">
           <div><dt>Play / pause</dt><dd><kbd>Space</kbd></dd></div>
           <div><dt>Focus search</dt><dd><kbd>Ctrl</kbd> <kbd>F</kbd></dd></div>
@@ -403,6 +437,8 @@
           <div><dt>Add to selection</dt><dd><kbd>Ctrl</kbd> <kbd>Click</kbd></dd></div>
           <div><dt>Export selection / region</dt><dd><kbd>Ctrl</kbd> <kbd>E</kbd></dd></div>
           <div><dt>Select range</dt><dd><kbd>Shift</kbd> <kbd>Click</kbd></dd></div>
+          <div><dt>Slice sound</dt><dd><kbd>Ctrl</kbd> <kbd>K</kbd></dd></div>
+          <div><dt>Make seamless loop</dt><dd><kbd>Ctrl</kbd> <kbd>L</kbd></dd></div>
           <div><dt>Toggle auto-play</dt><dd><kbd>Alt</kbd> <kbd>A</kbd></dd></div>
           <div><dt>Select all matches</dt><dd><kbd>Ctrl</kbd> <kbd>A</kbd></dd></div>
           <div><dt>Help guide</dt><dd><kbd>?</kbd></dd></div>
@@ -412,7 +448,7 @@
 
     <section id="mcp">
       <div class="sec-head">
-        <h2><span class="n">04</span>MCP server</h2>
+        <h2><span class="n">05</span>MCP server</h2>
         <div>
           <p class="lead">Optional. Lets Claude Desktop, Cursor, or VS Code search, tag, and export your library.</p>
           <p class="body-text">Off by default; enable it in Settings. It binds to <code>127.0.0.1</code> only, mints a new bearer token each launch, and checks Origin/Host headers to block browser DNS-rebinding. Settings shows the URL and token ready to paste into an <code>mcpServers</code> block.</p>
@@ -432,7 +468,7 @@
 
     <section id="download">
       <div class="sec-head">
-        <h2><span class="n">05</span>Download</h2>
+        <h2><span class="n">06</span>Download</h2>
         <div>
           <div class="dl">
             <a href="https://github.com/Stuyk/slip-sound/releases/latest">
@@ -461,7 +497,7 @@ certutil -hashfile slip-sound-Setup.exe SHA256</pre>
 
     <section id="alternatives">
       <div class="sec-head">
-        <h2><span class="n">06</span>Instead of</h2>
+        <h2><span class="n">07</span>Instead of</h2>
         <p class="alts">A free, local alternative to <span>Soundly</span>, <span>BaseHead</span>, <span>Soundminer</span>, <span>Resonic</span>, <span>AudioFinder</span>, <span>Sononym</span>, and <span>ADSR Sample Manager</span>.</p>
       </div>
     </section>

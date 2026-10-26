@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateExportFilename } from './export'
+import { generateExportFilename, sanitizeStem } from './export'
 
 describe('generateExportFilename', () => {
   it('preserves original stem when naming is original', () => {
@@ -20,5 +20,28 @@ describe('generateExportFilename', () => {
     expect(generateExportFilename('ignored', 0, 1, 'alpha', 'audio')).toBe('audio_a')
     expect(generateExportFilename('ignored', 25, 26, 'alpha', 'audio')).toBe('audio_z')
     expect(generateExportFilename('ignored', 26, 27, 'alpha', 'audio')).toBe('audio_aa')
+  })
+})
+
+describe('sanitizeStem', () => {
+  it('returns null for empty or unusable names', () => {
+    expect(sanitizeStem(undefined)).toBeNull()
+    expect(sanitizeStem('')).toBeNull()
+    expect(sanitizeStem('   ')).toBeNull()
+    expect(sanitizeStem('...')).toBeNull()
+  })
+
+  it('strips path separators so a name cannot escape the export folder', () => {
+    expect(sanitizeStem('../../etc/passwd')).toBe('_.._etc_passwd')
+    expect(sanitizeStem('a\\b')).toBe('a_b')
+  })
+
+  it('replaces characters Windows rejects and trims trailing dots/spaces', () => {
+    expect(sanitizeStem('kick: hard?')).toBe('kick_ hard_')
+    expect(sanitizeStem('snare. ')).toBe('snare')
+  })
+
+  it('keeps ordinary names untouched', () => {
+    expect(sanitizeStem('door_slam_03')).toBe('door_slam_03')
   })
 })

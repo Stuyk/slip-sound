@@ -53,6 +53,7 @@ export interface ExportBatchFile {
   sourcePath: string
   start?: number
   end?: number
+  name?: string
 }
 
 export interface ExportBatchParams {
@@ -155,6 +156,8 @@ const api = {
     start: number
     end: number
   }): Promise<string> => ipcRenderer.invoke('sounds:export-temp', params),
+  writeTempWav: (data: Uint8Array, stem: string): Promise<string> =>
+    ipcRenderer.invoke('sounds:write-temp-wav', data, stem),
   startDrag: (filePaths: string[]): void => ipcRenderer.send('drag:start', filePaths),
   getMcpStatus: (): Promise<McpStatus> => ipcRenderer.invoke('mcp:get-status'),
   setMcpEnabled: (enabled: boolean): Promise<McpStatus> => ipcRenderer.invoke('mcp:set-enabled', enabled),

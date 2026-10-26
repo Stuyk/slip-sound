@@ -99,3 +99,16 @@ export function generateExportFilename(
 
   return `${baseName}_${toAlpha(index)}`
 }
+
+// Turns a user-supplied name into a safe filename stem: no path separators,
+// no characters Windows rejects, no leading dots. Returns null if nothing usable is left.
+export function sanitizeStem(name: string | undefined): string | null {
+  if (!name) return null
+  const cleaned = name
+    // eslint-disable-next-line no-control-regex -- control chars are invalid in filenames
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '_')
+    .trim()
+    .replace(/^\.+/, '')
+    .replace(/[. ]+$/, '')
+  return cleaned.length > 0 ? cleaned.slice(0, 200) : null
+}

@@ -16,6 +16,8 @@ import {
   Infinity as InfinityIcon,
   Zap,
   Clock,
+  Scissors,
+  Repeat,
 } from 'lucide-solid';
 import { SearchInput } from '../ui/SearchInput';
 import { SegmentedControl } from '../ui/SegmentedControl';
@@ -48,6 +50,9 @@ export interface WorkstationMenuBarProps {
   onReindex: () => void;
   onCloseFolder: () => void;
   onOpenExport: () => void;
+  onOpenSlicer: () => void;
+  onOpenLoopTool: () => void;
+  canSlice: boolean;
   onOpenSettings: () => void;
   onSelectAll: () => void;
   onClearSelection: () => void;
@@ -165,6 +170,34 @@ export function WorkstationMenuBar(props: WorkstationMenuBarProps) {
                   <span>Export Selection…</span>
                 </div>
                 <span class="text-md font-mono opacity-60">Ctrl+E</span>
+              </button>
+
+              <button
+                id="menu-item-slicer"
+                type="button"
+                disabled={!props.canSlice}
+                class="px-3 py-1.5 flex items-center justify-between hover:bg-[#007acc] hover:text-white text-[#f0f3f6] text-left disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
+                onClick={() => runAction(props.onOpenSlicer)}
+              >
+                <div class="flex items-center gap-2">
+                  <Scissors size={13} />
+                  <span>Slice Sound…</span>
+                </div>
+                <span class="text-md font-mono opacity-60">Ctrl+K</span>
+              </button>
+
+              <button
+                id="menu-item-loop"
+                type="button"
+                disabled={!props.canSlice}
+                class="px-3 py-1.5 flex items-center justify-between hover:bg-[#007acc] hover:text-white text-[#f0f3f6] text-left disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
+                onClick={() => runAction(props.onOpenLoopTool)}
+              >
+                <div class="flex items-center gap-2">
+                  <Repeat size={13} />
+                  <span>Make Seamless Loop…</span>
+                </div>
+                <span class="text-md font-mono opacity-60">Ctrl+L</span>
               </button>
 
               <div class="h-px bg-[#1c1d1f] my-1" />

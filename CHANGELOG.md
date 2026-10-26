@@ -1,5 +1,25 @@
 # Changelog
 
+## v2.1.0
+
+### Added
+
+- Slicer (`Ctrl+K`, the **Slice…** button under the waveform, or File → Slice Sound…): mark any number of regions on one sound and export each one as its own file.
+  - Drag on empty space to add a slice; drag its edges to trim or its middle to move it. Slices can overlap.
+  - Press `M` while playing to mark a slice's start, then `M` again to mark its end.
+  - Auto-Detect splits the sound on silence, with adjustable threshold and minimum gap.
+  - Zoom with `Ctrl+Wheel` or `+`/`-`/`0`, pan with the wheel or the overview strip.
+  - Each slice gets an editable output name (defaults to `<file>_01`, `<file>_02`, …) and editable start/end times.
+  - Undo/redo (`Ctrl+Z` / `Ctrl+Shift+Z`). Slices are kept for each file until the app closes.
+  - Exports go through the regular export dialog, so format, sample rate and bit depth all work as usual.
+- Seamless Loop (`Ctrl+L`, the **Loop…** button under the waveform, or File → Make Seamless Loop…): turn a region into a click-free loop.
+  - Drag to pick the region (or start from the region selected in the main waveform); drag edges to trim, middle to move.
+  - The last part of the region (the tail) is crossfaded over the start (the head). The loop comes out shorter by the crossfade length, and its end runs straight back into its start.
+  - Adjustable crossfade length (up to half the region) with Equal Power or Linear curves.
+  - Live preview with A/B (`B`) between the seamless loop and the raw region loop; changes are heard immediately.
+  - The result view plays the loop twice with the loop point marked, so the seam is visible.
+  - Exports through the regular export dialog (any format, sample rate, bit depth).
+
 ## v2.0.0
 
 ### Changed

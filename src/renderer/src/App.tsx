@@ -5,6 +5,8 @@ import HelpModal from './components/HelpModal'
 import SettingsModal from './components/SettingsModal'
 import ExportModal, { ExportFile } from './components/ExportModal'
 import CategoryModal from './components/CategoryModal'
+import SlicerModal from './components/SlicerModal'
+import SeamlessLoopModal from './components/SeamlessLoopModal'
 import { CategorySidebar } from './components/CategorySidebar'
 import { fetchAllMatchingSounds } from './selection'
 import { ThemeProvider } from './themes/context'
@@ -57,6 +59,10 @@ function MainWorkstation() {
   const [loadingMore, setLoadingMore] = createSignal(false)
   const [exportModalOpen, setExportModalOpen] = createSignal(false)
   const [exportFiles, setExportFiles] = createSignal<ExportFile[]>([])
+  const [slicerRow, setSlicerRow] = createSignal<SoundRow | null>(null)
+  const [slicerSeed, setSlicerSeed] = createSignal<{ start: number; end: number } | null>(null)
+  const [loopRow, setLoopRow] = createSignal<SoundRow | null>(null)
+  const [loopSeed, setLoopSeed] = createSignal<{ start: number; end: number } | null>(null)
   const [categoryModalRows, setCategoryModalRows] = createSignal<SoundRow[]>([])
   const [favoritesOnly, setFavoritesOnly] = createSignal(false)
   const [sortBy, setSortBy] = createSignal<SortColumn>(
@@ -426,6 +432,22 @@ function MainWorkstation() {
     }
   }
 
+  function openSlicer(region?: { start: number; end: number } | null): void {
+    const row = selectedRow()
+    if (!row) return
+    waveApi?.pause()
+    setSlicerSeed(region ?? null)
+    setSlicerRow(row)
+  }
+
+  function openLoopTool(region?: { start: number; end: number } | null): void {
+    const row = selectedRow()
+    if (!row) return
+    waveApi?.pause()
+    setLoopSeed(region ?? null)
+    setLoopRow(row)
+  }
+
   function openCategoryModalForRow(row: SoundRow): void {
     setCategoryModalRows([row])
   }
@@ -598,7 +620,7 @@ function MainWorkstation() {
       return
     }
 
-    if (exportModalOpen() || categoryModalRows().length > 0 || showSettings()) {
+    if (exportModalOpen() || categoryModalRows().length > 0 || showSettings() || slicerRow() || loopRow()) {
       return
     }
 
@@ -611,6 +633,18 @@ function MainWorkstation() {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
       e.preventDefault()
       openExportForSelection()
+      return
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault()
+      openSlicer()
+      return
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
+      e.preventDefault()
+      openLoopTool()
       return
     }
 
@@ -724,6 +758,9 @@ function MainWorkstation() {
         onReindex={doReindex}
         onCloseFolder={() => setFolder(null)}
         onOpenExport={openExportForSelection}
+        onOpenSlicer={() => openSlicer()}
+        onOpenLoopTool={() => openLoopTool()}
+        canSlice={selectedRow() !== null}
         onOpenSettings={() => setShowSettings(true)}
         onSelectAll={selectAllFiltered}
         onClearSelection={() => setMultiSelected(new Map())}
@@ -832,6 +869,8 @@ function MainWorkstation() {
           onExportRequest={(region) => {
             openExportForSelection(region)
           }}
+          onSliceRequest={openSlicer}
+          onLoopRequest={openLoopTool}
         />
       </Show>
 
@@ -855,6 +894,31 @@ function MainWorkstation() {
 
       {/* Settings Modal (MCP toggle + connection info + Theme selector) */}
       <SettingsModal isOpen={showSettings()} onClose={() => setShowSettings(false)} />
+
+      {/* Slicer: mark many regions of one sound, export each as its own file.
+          Rendered before the export modal so that one stacks on top. */}
+      <SlicerModal
+        row={slicerRow()}
+        seedRegion={slicerSeed()}
+        blocked={exportModalOpen()}
+        onClose={() => setSlicerRow(null)}
+        onExport={(files) => {
+          setExportFiles(files)
+          setExportModalOpen(true)
+        }}
+      />
+
+      {/* Seamless Loop: crossfade a region's tail into its head, export the loop. */}
+      <SeamlessLoopModal
+        row={loopRow()}
+        seedRegion={loopSeed()}
+        blocked={exportModalOpen()}
+        onClose={() => setLoopRow(null)}
+        onExport={(files) => {
+          setExportFiles(files)
+          setExportModalOpen(true)
+        }}
+      />
 
       {/* Shared Export Wizard Modal */}
       <ExportModal open={exportModalOpen()} files={exportFiles()} onClose={() => setExportModalOpen(false)} />

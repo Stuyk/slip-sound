@@ -11,7 +11,9 @@ import {
   XIcon,
   FileAudioIcon,
   RefreshCwIcon,
-  GripVerticalIcon
+  GripVerticalIcon,
+  ScissorsIcon,
+  RepeatIcon
 } from './icons'
 
 export interface WaveformApi {
@@ -42,6 +44,8 @@ export default function WaveformPreview(props: {
   selectedCount?: number
   onApi?: (api: WaveformApi) => void
   onExportRequest?: (region: { start: number; end: number } | null) => void
+  onSliceRequest?: (region: { start: number; end: number } | null) => void
+  onLoopRequest?: (region: { start: number; end: number } | null) => void
 }) {
   let canvas: HTMLCanvasElement | undefined
   let canvasWrap: HTMLDivElement | undefined
@@ -684,6 +688,35 @@ export default function WaveformPreview(props: {
           <span>{formatTime(duration())}</span>
         </div>
 
+        <div id="waveform-footer-actions" class="flex items-center gap-2">
+        <Button
+          id="waveform-slice-btn"
+          variant="default"
+          size="sm"
+          onClick={() => {
+            audioEl?.pause()
+            props.onSliceRequest?.(regionBounds())
+          }}
+          disabled={!props.row}
+          icon={<ScissorsIcon size={13} />}
+          title="Open the Slicer to cut this sound into multiple files (Ctrl+K)"
+        >
+          <span>Slice…</span>
+        </Button>
+        <Button
+          id="waveform-loop-btn"
+          variant="default"
+          size="sm"
+          onClick={() => {
+            audioEl?.pause()
+            props.onLoopRequest?.(regionBounds())
+          }}
+          disabled={!props.row}
+          icon={<RepeatIcon size={13} />}
+          title="Make a seamless loop from this sound or the selected region (Ctrl+L)"
+        >
+          <span>Loop…</span>
+        </Button>
         <Button
           id="waveform-export-btn"
           variant="primary"
@@ -700,6 +733,7 @@ export default function WaveformPreview(props: {
                 : 'Export File…'}
           </span>
         </Button>
+        </div>
       </div>
 
       <audio

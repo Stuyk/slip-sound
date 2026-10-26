@@ -41,6 +41,8 @@ export interface ExportFile {
   filename: string;
   start?: number;
   end?: number;
+  // Output stem override (slices); used by "Keep Original" naming.
+  name?: string;
 }
 
 const PREF_KEY = 'slipsound:export-defaults';
@@ -114,6 +116,7 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
   });
 
   const hasRegion = (): boolean => props.files.length === 1 && props.files[0].start !== undefined;
+  const isSliceSet = (): boolean => props.files.length > 1 && props.files.some((f) => f.start !== undefined);
 
   const regionInfo = (): string | null => {
     if (!hasRegion()) return null;
@@ -130,7 +133,7 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
   function previewName(index: number): string {
     const file = props.files[index];
     if (!file) return '';
-    const stem = file.filename.replace(/\.[^.]+$/, '');
+    const stem = file.name ?? file.filename.replace(/\.[^.]+$/, '');
     const mode = naming();
     if (mode === 'original') return `${stem}.${format()}`;
     if (mode === 'numeric') {
@@ -181,7 +184,7 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
     setProgress(null);
     try {
       const result = await window.api.exportBatch({
-        files: props.files.map((f) => ({ sourcePath: f.sourcePath, start: f.start, end: f.end })),
+        files: props.files.map((f) => ({ sourcePath: f.sourcePath, start: f.start, end: f.end, name: f.name })),
         format: format(),
         sampleRate: sampleRate(),
         bitDepth: format() === 'wav' ? bitDepth() : undefined,
@@ -223,6 +226,12 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
             <Badge variant="warning" class="flex items-center gap-1">
               <Scissors size={12} />
               <span>Trimmed Region</span>
+            </Badge>
+          </Show>
+          <Show when={isSliceSet()}>
+            <Badge variant="warning" class="flex items-center gap-1">
+              <Scissors size={12} />
+              <span>Slices</span>
             </Badge>
           </Show>
         </div>
