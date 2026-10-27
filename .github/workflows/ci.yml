@@ -45,6 +45,21 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile --ignore-scripts
 
+      # The processing integration tests run the real ffmpeg, and --ignore-scripts
+      # skips ffmpeg-static's binary download. Same restore-then-install as the build.
+      - name: Cache ffmpeg-static binary
+        uses: actions/cache@v4
+        with:
+          path: node_modules/ffmpeg-static/ffmpeg*
+          key: ${{ runner.os }}-ffmpeg-${{ hashFiles('bun.lock') }}
+
+      - name: Install ffmpeg-static binary
+        shell: bash
+        run: |
+          node node_modules/ffmpeg-static/install.js
+          node -e "const p = require('ffmpeg-static'); require('fs').statSync(p); console.log('ffmpeg at', p)" \
+            || { echo "::error::ffmpeg binary missing"; exit 1; }
+
       - name: Typecheck
         run: bun run typecheck
 
