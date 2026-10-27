@@ -7,6 +7,7 @@ import {
   RefreshCw,
   Repeat,
   Scan,
+  SlidersHorizontal,
   Volume2,
   VolumeX,
   ZoomIn,
@@ -14,6 +15,7 @@ import {
 } from 'lucide-solid'
 import type { SoundRow } from '../../../preload/index'
 import type { ExportFile } from './ExportModal'
+import { type EffectsItem, virtualRow } from './EffectsModal'
 import { Modal } from './ui/Modal'
 import { Button } from './ui/Button'
 import { IconButton } from './ui/IconButton'
@@ -59,6 +61,8 @@ export interface SeamlessLoopModalProps {
   blocked: boolean
   onClose: () => void
   onExport: (files: ExportFile[]) => void
+  // Open the finished loop in the Effects window.
+  onEffects?: (items: EffectsItem[]) => void
 }
 
 export default function SeamlessLoopModal(props: SeamlessLoopModalProps): JSX.Element {
@@ -88,6 +92,7 @@ export default function SeamlessLoopModal(props: SeamlessLoopModalProps): JSX.El
             seedRegion={props.seedRegion}
             blocked={props.blocked}
             onExport={props.onExport}
+            onEffects={props.onEffects}
           />
         )}
       </Show>
@@ -100,6 +105,7 @@ function LoopEditor(props: {
   seedRegion?: { start: number; end: number } | null
   blocked: boolean
   onExport: (files: ExportFile[]) => void
+  onEffects?: (items: EffectsItem[]) => void
 }): JSX.Element {
   let srcCanvas: HTMLCanvasElement | undefined
   let srcWrap: HTMLDivElement | undefined
@@ -326,7 +332,10 @@ function LoopEditor(props: {
   // ---- Export ----
   const [exporting, setExporting] = createSignal(false)
 
-  async function exportLoop(): Promise<void> {
+  // Writes the loop to a temp file and hands it on (to Export or to Effects).
+  async function withLoopFile(
+    use: (path: string, outName: string, seconds: number) => void
+  ): Promise<void> {
     if (exporting() || !buffer) return
     const r = renderNow()
     if (!r || r.length <= 0) return
@@ -338,13 +347,30 @@ function LoopEditor(props: {
         encodeWavFloat32(r.channels, buffer.sampleRate),
         outName
       )
-      props.onExport([{ sourcePath: path, filename: `${outName}.wav`, name: outName }])
+      use(path, outName, r.length)
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : String(err))
     } finally {
       setExporting(false)
     }
   }
+
+  const exportLoop = (): Promise<void> =>
+    withLoopFile((path, outName) =>
+      props.onExport([{ sourcePath: path, filename: `${outName}.wav`, name: outName }])
+    )
+
+  const effectsForLoop = (): Promise<void> =>
+    withLoopFile((path, outName, seconds) =>
+      props.onEffects?.([
+        {
+          row: virtualRow(path, `${outName}.wav`, seconds),
+          name: outName,
+          excludeFades: true,
+          virtual: true
+        }
+      ])
+    )
 
   // ---- Loading ----
   onMount(async () => {
@@ -844,7 +870,7 @@ function LoopEditor(props: {
             Result — played twice, loop point in the middle
           </span>
           <span class="font-mono text-[var(--text-muted)]">
-            {regionLen().toFixed(3)}s region → {loopLen().toFixed(3)}s loop
+            {formatTime(regionLen())} region → {formatTime(loopLen())} loop
           </span>
         </div>
         <div
@@ -875,6 +901,18 @@ function LoopEditor(props: {
           placeholder={`${stem}_loop`}
           class="h-8 w-72 px-2.5 bg-[#1e2022] border border-[#1c1d1f] focus:border-[#007acc] rounded-[3px] font-mono text-md text-[#f0f3f6] placeholder:text-[#8b949e]/60 focus:outline-none"
         />
+        <Show when={props.onEffects}>
+          <Button
+            id="loop-effects-btn"
+            size="sm"
+            onClick={() => void effectsForLoop()}
+            disabled={!ready() || exporting() || loopLen() <= 0}
+            icon={<SlidersHorizontal size={13} />}
+            title="Add effects to the loop (fades are skipped so it stays seamless)"
+          >
+            Effects…
+          </Button>
+        </Show>
         <Button
           id="loop-export-btn"
           variant="primary"

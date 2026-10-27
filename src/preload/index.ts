@@ -8,7 +8,10 @@ import type {
   ProcessingSettings
 } from '../shared/processing'
 
+import type { FolderNode } from '../shared/folders'
+
 export type { GainDecision, LoudnessMeasurement, ProcessingEffects, ProcessingPreset, ProcessingSettings }
+export type { FolderNode }
 
 export interface SoundRow {
   id: number
@@ -35,12 +38,25 @@ export interface SearchParams {
   channels?: number
   category?: string
   subcategory?: string
+  // Only sounds inside this folder (absolute path), including its subfolders.
+  folder?: string
   minConfidence?: number
   favoriteOnly?: boolean
   sortBy?: SortColumn
   sortDir?: SortDir
   limit?: number
   offset?: number
+}
+
+// Category and favorite state of one sound, as saved for undo/redo.
+export interface SoundState {
+  path: string
+  category: string
+  subcategory: string | null
+  confidence: number
+  matched_terms: string[]
+  category_manual: boolean
+  favorite: boolean
 }
 
 export interface CategoryFacet {
@@ -164,7 +180,16 @@ const api = {
   search: (params: SearchParams): Promise<SoundRow[]> => ipcRenderer.invoke('sounds:search', params),
   count: (params: SearchParams): Promise<number> => ipcRenderer.invoke('sounds:count', params),
   getCategoryFacets: (): Promise<CategoryFacet[]> => ipcRenderer.invoke('sounds:category-facets'),
+  getFolderTree: (): Promise<FolderNode | null> => ipcRenderer.invoke('sounds:folder-tree'),
+  getSoundStates: (paths: string[]): Promise<SoundState[]> => ipcRenderer.invoke('sounds:states', paths),
+  restoreSoundStates: (states: SoundState[]): Promise<void> =>
+    ipcRenderer.invoke('sounds:restore-states', states),
+  // Waveform overview (max amplitude per bucket), computed and cached by the main process.
+  getWaveformPeaks: (path: string): Promise<{ peaks: Float32Array; duration: number | null }> =>
+    ipcRenderer.invoke('waveform:peaks', path),
   toggleFavorite: (path: string): Promise<boolean> => ipcRenderer.invoke('sounds:toggle-favorite', path),
+  setFavorites: (paths: string[], favorite: boolean): Promise<void> =>
+    ipcRenderer.invoke('sounds:set-favorites', paths, favorite),
   setCategory: (path: string, category: string, subcategory: string | null): Promise<void> =>
     ipcRenderer.invoke('sounds:set-category', path, category, subcategory),
   setCategories: (paths: string[], category: string, subcategory: string | null): Promise<void> =>

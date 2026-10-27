@@ -1,7 +1,7 @@
 import { readdirSync, statSync } from 'fs'
 import { join, extname, basename } from 'path'
 import { DatabaseSync } from 'node:sqlite'
-import { pruneMissingSounds, insertSounds, InsertableSound } from './db'
+import { pruneMissingSounds, insertSounds, InsertableSound, relativeFolder } from './db'
 import { readAudioMeta } from './audioMeta'
 import { DB_FILENAME } from './db'
 import { classifySound } from './classifier'
@@ -63,7 +63,8 @@ export function reindexFolder(
       category: classification.category,
       subcategory: classification.subcategory ?? null,
       confidence: classification.confidence,
-      matched_terms: classification.matchedTerms
+      matched_terms: classification.matchedTerms,
+      folder: relativeFolder(folder, filePath)
     })
     if (onProgress && (i % 500 === 0 || i === files.length - 1)) {
       onProgress(i + 1, files.length)

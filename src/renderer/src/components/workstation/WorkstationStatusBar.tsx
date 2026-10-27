@@ -45,20 +45,9 @@ export function WorkstationStatusBar(props: WorkstationStatusBarProps) {
             </span>
           </div>
 
-          <div id="status-bar-total-sounds" class="text-md text-[#8b949e]">
-            <span>{props.folder!.count} Total Sounds</span>
-          </div>
-
-          <div
-            id="status-bar-matching-sounds"
-            class="text-md text-[#8b949e] font-mono tabular-nums"
-            title={`${props.resultsCount} loaded of ${props.matchingCount} matching sounds`}
-          >
-            <span>
-              {props.resultsCount === props.matchingCount
-                ? `${props.matchingCount} shown`
-                : `${props.resultsCount} / ${props.matchingCount} shown`}
-            </span>
+          {/* The search box shows how many match; this is the library's size. */}
+          <div id="status-bar-total-sounds" class="text-md text-[#8b949e] tabular-nums">
+            <span>{props.folder!.count.toLocaleString()} sounds</span>
           </div>
 
           <Show when={props.matchingCount !== props.folder!.count}>

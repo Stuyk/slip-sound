@@ -1,5 +1,5 @@
 import { createSignal, createEffect, Show, onCleanup, onMount } from 'solid-js'
-import type { SoundRow, RecentEntry, CategoryFacet, SearchParams, SortColumn, SortDir } from '../../preload/index'
+import type { SoundRow, RecentEntry, CategoryFacet, SearchParams, SortColumn, SortDir, SoundState } from '../../preload/index'
 import WaveformPreview, { WaveformApi } from './components/WaveformPreview'
 import HelpModal from './components/HelpModal'
 import SettingsModal from './components/SettingsModal'
@@ -7,8 +7,8 @@ import ExportModal, { ExportFile } from './components/ExportModal'
 import CategoryModal from './components/CategoryModal'
 import SlicerModal from './components/SlicerModal'
 import SeamlessLoopModal from './components/SeamlessLoopModal'
-import EffectsModal from './components/EffectsModal'
-import { CategorySidebar } from './components/CategorySidebar'
+import EffectsModal, { type EffectsItem, type SendTarget } from './components/EffectsModal'
+import { CategorySidebar, type SidebarMode } from './components/CategorySidebar'
 import { fetchAllMatchingSounds } from './selection'
 import { ThemeProvider } from './themes/context'
 import { WorkstationMenuBar } from './components/workstation/WorkstationMenuBar'
@@ -16,9 +16,25 @@ import { SoundTable } from './components/workstation/SoundTable'
 import { WorkstationStatusBar } from './components/workstation/WorkstationStatusBar'
 import { WelcomeScreen } from './components/workstation/WelcomeScreen'
 import { ScanningOverlay } from './components/workstation/ScanningOverlay'
-import { ToastContainer } from './components/ui/Toast'
+import { ToastContainer, showToast } from './components/ui/Toast'
+import { ContextMenu, type MenuItem } from './components/ui/ContextMenu'
+import {
+  Copy,
+  Download,
+  Folder,
+  FolderOpen,
+  Play,
+  Repeat,
+  Scissors,
+  SlidersHorizontal,
+  Star,
+  Tag,
+  TagX
+} from 'lucide-solid'
+import { clearHistory, recordEdit, redo, redoLabel, undo, undoLabel } from './libraryHistory'
 import { initProcessing } from './processingStore'
 import type { ProcessingSettings } from '../../shared/processing'
+import type { FolderNode } from '../../shared/folders'
 import appIcon from '../assets/app-icon.png'
 
 function formatDuration(d?: number | null): string {
@@ -42,6 +58,12 @@ function MainWorkstation() {
   const [facets, setFacets] = createSignal<CategoryFacet[]>([])
   const [selectedCategory, setSelectedCategory] = createSignal<string>('')
   const [selectedSubcategory, setSelectedSubcategory] = createSignal<string>('')
+  const [sidebarMode, setSidebarMode] = createSignal<SidebarMode>(
+    localStorage.getItem('slipsound:sidebar-mode') === 'folders' ? 'folders' : 'categories'
+  )
+  const [folderTree, setFolderTree] = createSignal<FolderNode | null>(null)
+  // Absolute path of the folder the list is limited to ('' = whole library).
+  const [selectedFolder, setSelectedFolder] = createSignal('')
   const [results, setResults] = createSignal<SoundRow[]>([])
   const [selected, setSelected] = createSignal(0)
   const [multiSelected, setMultiSelected] = createSignal<Map<string, SoundRow>>(new Map())
@@ -64,8 +86,8 @@ function MainWorkstation() {
   const [exportFiles, setExportFiles] = createSignal<ExportFile[]>([])
   // Effects chosen in the Effects window for this export (pre-selected in the dialog).
   const [exportProcessing, setExportProcessing] = createSignal<ProcessingSettings | undefined>()
-  const [effectsRows, setEffectsRows] = createSignal<SoundRow[]>([])
-  const [effectsSeed, setEffectsSeed] = createSignal<{ start: number; end: number } | null>(null)
+  const [effectsItems, setEffectsItems] = createSignal<EffectsItem[]>([])
+  const [effectsNoun, setEffectsNoun] = createSignal('sounds')
   const [slicerRow, setSlicerRow] = createSignal<SoundRow | null>(null)
   const [slicerSeed, setSlicerSeed] = createSignal<{ start: number; end: number } | null>(null)
   const [loopRow, setLoopRow] = createSignal<SoundRow | null>(null)
@@ -169,6 +191,7 @@ function MainWorkstation() {
         setProgress(null)
         refreshCurrentCount()
         refreshFacets()
+        void refreshFolders()
         runSearch()
       })
     )
@@ -189,6 +212,47 @@ function MainWorkstation() {
 
   async function refreshFacets(): Promise<void> {
     setFacets(await window.api.getCategoryFacets())
+  }
+
+  async function refreshFolders(): Promise<void> {
+    const tree = await window.api.getFolderTree()
+    setFolderTree(tree)
+    // Drop a selected folder that no longer exists after a reindex.
+    const sel = selectedFolder()
+    if (sel && tree) {
+      const exists = (n: FolderNode): boolean => n.path === sel || n.children.some(exists)
+      if (!exists(tree)) setSelectedFolder('')
+    }
+  }
+
+  // A different library: its own folders, and no folder filter carried over.
+  let lastLibrary: string | null = null
+  createEffect(() => {
+    const lib = folder()?.folder ?? null
+    if (lib === lastLibrary) return
+    lastLibrary = lib
+    clearHistory()
+    setSelectedFolder('')
+    setFolderTree(null)
+    if (lib) void refreshFolders()
+  })
+
+  // Switching the sidebar view clears the other view's filter, so nothing filters
+  // the list without being visible.
+  function changeSidebarMode(mode: SidebarMode): void {
+    if (mode === sidebarMode()) return
+    setSidebarMode(mode)
+    try {
+      localStorage.setItem('slipsound:sidebar-mode', mode)
+    } catch {
+      // ignore
+    }
+    if (mode === 'folders') {
+      setSelectedCategory('')
+      setSelectedSubcategory('')
+    } else {
+      setSelectedFolder('')
+    }
   }
 
   async function pickFolder(): Promise<void> {
@@ -225,6 +289,7 @@ function MainWorkstation() {
     channels: channels() ? parseInt(channels(), 10) : undefined,
     category: selectedCategory() || undefined,
     subcategory: selectedSubcategory() || undefined,
+    folder: selectedFolder() || undefined,
     favoriteOnly: favoritesOnly() || undefined,
     sortBy: sortBy(),
     sortDir: sortDir()
@@ -339,19 +404,124 @@ function MainWorkstation() {
     window.api.startDrag(selectedPaths)
   }
 
-  async function toggleRowFavorite(row: SoundRow, e: MouseEvent): Promise<void> {
-    e.stopPropagation()
-    const next = await window.api.toggleFavorite(row.path)
-    setResults((prev) =>
-      prev.map((r) => (r.path === row.path ? { ...r, favorite: next } : r))
-    )
-    setMultiSelected((prev) => {
-      if (!prev.has(row.path)) return prev
-      const nextMap = new Map(prev)
-      const target = nextMap.get(row.path)
-      if (target) nextMap.set(row.path, { ...target, favorite: next })
-      return nextMap
-    })
+  // Merges fresh category/favorite state into the visible rows and selection.
+  function applyStates(states: SoundState[]): void {
+    const byPath = new Map(states.map((st) => [st.path, st]))
+    const merge = (row: SoundRow): SoundRow => {
+      const st = byPath.get(row.path)
+      return st ? { ...row, ...st } : row
+    }
+    setResults((prev) => prev.map(merge))
+    setMultiSelected((prev) => new Map(Array.from(prev.entries()).map(([p, row]) => [p, merge(row)])))
+  }
+
+  // Runs a library edit with undo support, then updates the UI and offers Undo.
+  async function editLibrary(label: string, paths: string[], apply: () => Promise<unknown>, quiet = false): Promise<void> {
+    if (paths.length === 0) return
+    applyStates(await recordEdit(label, paths, apply))
+    await refreshFacets()
+    if (!quiet) showToast({ type: 'success', title: label, action: { label: 'Undo', onClick: () => void undoEdit() } })
+  }
+
+  async function undoEdit(): Promise<void> {
+    const res = await undo()
+    if (!res) return
+    applyStates(res.states)
+    await refreshFacets()
+    showToast({ type: 'info', title: `Undid: ${res.label}`, action: { label: 'Redo', onClick: () => void redoEdit() } })
+  }
+
+  async function redoEdit(): Promise<void> {
+    const res = await redo()
+    if (!res) return
+    applyStates(res.states)
+    await refreshFacets()
+    showToast({ type: 'info', title: `Redid: ${res.label}` })
+  }
+
+  // ---- Right-click menu on a sound ----
+  // Acts on the multi-selection when the clicked sound is part of it, else on that sound.
+  const [rowMenu, setRowMenu] = createSignal<{ x: number; y: number; index: number; targets: SoundRow[] } | null>(null)
+
+  function onRowContextMenu(index: number, e: MouseEvent): void {
+    e.preventDefault()
+    const row = results()[index]
+    if (!row) return
+    const inSelection = multiSelected().has(row.path)
+    if (!inSelection) {
+      setMultiSelected(new Map())
+      setSelected(index)
+    }
+    const targets = inSelection ? Array.from(multiSelected().values()) : [row]
+    setRowMenu({ x: e.clientX, y: e.clientY, index, targets })
+  }
+
+  const folderOf = (p: string): string => p.slice(0, Math.max(p.lastIndexOf('/'), p.lastIndexOf('\\')))
+
+  function showInFolders(row: SoundRow): void {
+    changeSidebarMode('folders')
+    setSidebarOpen(true)
+    const dir = folderOf(row.path)
+    setSelectedFolder(dir === folder()?.folder ? '' : dir)
+  }
+
+  const rowMenuItems = (): MenuItem[] => {
+    const m = rowMenu()
+    if (!m) return []
+    const one = m.targets.length === 1 ? m.targets[0] : null
+    const n = m.targets.length
+    const paths = m.targets.map((r) => r.path)
+    const allFav = m.targets.every((r) => r.favorite)
+    const many = (label: string): string => (one ? label : `${label} (${n})`)
+    return [
+      { id: 'row-menu-play', label: 'Play', shortcut: 'Space', icon: Play, disabled: !one, onClick: () => { setSelected(m.index); waveApi?.play() } },
+      { id: 'row-menu-effects', label: many('Effects…'), shortcut: 'Ctrl+P', icon: SlidersHorizontal, onClick: () => openEffects() },
+      { id: 'row-menu-slice', label: 'Slice…', shortcut: 'Ctrl+K', icon: Scissors, disabled: !one, onClick: () => openSlicer() },
+      { id: 'row-menu-loop', label: 'Make Seamless Loop…', shortcut: 'Ctrl+L', icon: Repeat, disabled: !one, onClick: () => openLoopTool() },
+      { id: 'row-menu-div-1', isDivider: true },
+      { id: 'row-menu-export', label: many('Export…'), shortcut: 'Ctrl+E', icon: Download, onClick: () => openExportForSelection() },
+      { id: 'row-menu-reveal', label: 'Reveal in File Manager', icon: FolderOpen, disabled: !one, onClick: () => one && window.api.revealInFolder(one.path) },
+      { id: 'row-menu-show-folder', label: 'Show in Folders', icon: Folder, disabled: !one, onClick: () => one && showInFolders(one) },
+      {
+        id: 'row-menu-copy-path',
+        label: one ? 'Copy Path' : `Copy ${n} Paths`,
+        icon: Copy,
+        onClick: () => {
+          void navigator.clipboard.writeText(paths.join('\n'))
+          showToast({ type: 'success', title: one ? 'Path copied' : `${n} paths copied` })
+        }
+      },
+      { id: 'row-menu-div-2', isDivider: true },
+      {
+        id: 'row-menu-favorite',
+        label: many(allFav ? 'Remove from Favorites' : 'Add to Favorites'),
+        icon: Star,
+        onClick: () =>
+          void editLibrary(
+            allFav ? `Removed ${plural(n)} from favorites` : `Added ${plural(n)} to favorites`,
+            paths,
+            () => window.api.setFavorites(paths, !allFav),
+            !!one
+          )
+      },
+      { id: 'row-menu-set-category', label: many('Set Category…'), icon: Tag, onClick: () => setCategoryModalRows(m.targets) },
+      {
+        id: 'row-menu-clear-category',
+        label: many('Clear Category'),
+        icon: TagX,
+        disabled: m.targets.every((r) => r.category === 'Uncategorized' && !r.category_manual),
+        onClick: () =>
+          void editLibrary(`Cleared category on ${plural(n)}`, paths, () => window.api.clearCategories(paths))
+      }
+    ]
+  }
+
+  const plural = (n: number): string => `${n} sound${n === 1 ? '' : 's'}`
+
+  async function toggleRowFavorite(row: SoundRow, e?: MouseEvent): Promise<void> {
+    e?.stopPropagation()
+    // A single star click is easy to see and reverse, so no toast; Ctrl+Z still works.
+    await editLibrary(row.favorite ? 'Unfavorite' : 'Favorite', [row.path], () => window.api.toggleFavorite(row.path), true)
   }
 
   async function revealRow(row: SoundRow, e: MouseEvent): Promise<void> {
@@ -379,6 +549,7 @@ function MainWorkstation() {
     setChannels('')
     setSelectedCategory('')
     setSelectedSubcategory('')
+    setSelectedFolder('')
     setFavoritesOnly(false)
   }
 
@@ -389,6 +560,7 @@ function MainWorkstation() {
         channels() ||
         selectedCategory() ||
         selectedSubcategory() ||
+        selectedFolder() ||
         favoritesOnly()
     )
 
@@ -467,8 +639,27 @@ function MainWorkstation() {
     const rows = multiSelected().size > 0 ? Array.from(multiSelected().values()) : selectedRow() ? [selectedRow()!] : []
     if (rows.length === 0) return
     waveApi?.pause()
-    setEffectsSeed(rows.length === 1 ? (region ?? null) : null)
-    setEffectsRows(rows)
+    openEffectsFor(rows.map((row) => ({ row, region: rows.length === 1 ? (region ?? null) : null })))
+  }
+
+  function openEffectsFor(items: EffectsItem[], noun = 'sounds'): void {
+    setEffectsNoun(noun)
+    setEffectsItems(items)
+  }
+
+  // Effects result into another tool: Effects closes, the tool opens on the render.
+  function sendEffectsResult(target: SendTarget, row: SoundRow): void {
+    // Only the destination tool stays open, so it isn't hidden under the other one.
+    setEffectsItems([])
+    if (target === 'slicer') {
+      setLoopRow(null)
+      setSlicerSeed(null)
+      setSlicerRow(row)
+    } else {
+      setSlicerRow(null)
+      setLoopSeed(null)
+      setLoopRow(row)
+    }
   }
 
   function openCategoryModalForRow(row: SoundRow): void {
@@ -482,132 +673,28 @@ function MainWorkstation() {
   }
 
   async function applyCategory(category: string, subcategory: string | null): Promise<void> {
-    const targets = categoryModalRows()
-    if (targets.length === 0) return
-    const paths = targets.map((r) => r.path)
-    await window.api.setCategories([...paths], category, subcategory)
-
-    const pathSet = new Set(paths)
-    setResults((prev) =>
-      prev.map((row) =>
-        pathSet.has(row.path)
-          ? {
-              ...row,
-              category,
-              subcategory,
-              confidence: 1,
-              matched_terms: ['manual'],
-              category_manual: true
-            }
-          : row
-      )
-    )
-    setMultiSelected(
-      (prev) =>
-        new Map(
-          Array.from(prev.entries()).map(([p, row]) => [
-            p,
-            pathSet.has(p)
-              ? {
-                  ...row,
-                  category,
-                  subcategory,
-                  confidence: 1,
-                  matched_terms: ['manual'],
-                  category_manual: true
-                }
-              : row
-          ])
-        )
-    )
+    const paths = categoryModalRows().map((r) => r.path)
     setCategoryModalRows([])
-    await refreshFacets()
+    await editLibrary(
+      `Set ${plural(paths.length)} to ${subcategory ? `${category} / ${subcategory}` : category}`,
+      paths,
+      () => window.api.setCategories([...paths], category, subcategory)
+    )
   }
 
   async function removeCategory(): Promise<void> {
-    const targets = categoryModalRows()
-    if (targets.length === 0) return
-    const paths = targets.map((r) => r.path)
-    await window.api.clearCategories([...paths])
-
-    const pathSet = new Set(paths)
-    setResults((prev) =>
-      prev.map((row) =>
-        pathSet.has(row.path)
-          ? {
-              ...row,
-              category: 'Uncategorized',
-              subcategory: null,
-              confidence: 0,
-              matched_terms: [],
-              category_manual: false
-            }
-          : row
-      )
-    )
-    setMultiSelected(
-      (prev) =>
-        new Map(
-          Array.from(prev.entries()).map(([p, row]) => [
-            p,
-            pathSet.has(p)
-              ? {
-                  ...row,
-                  category: 'Uncategorized',
-                  subcategory: null,
-                  confidence: 0,
-                  matched_terms: [],
-                  category_manual: false
-                }
-              : row
-          ])
-        )
-    )
+    const paths = categoryModalRows().map((r) => r.path)
     setCategoryModalRows([])
-    await refreshFacets()
+    await editLibrary(`Cleared category on ${plural(paths.length)}`, paths, () =>
+      window.api.clearCategories([...paths])
+    )
   }
 
   async function clearCategoryForSelection(): Promise<void> {
-    const targets = Array.from(multiSelected().values())
-    if (targets.length === 0) return
-    const paths = targets.map((r) => r.path)
-    await window.api.clearCategories([...paths])
-
-    const pathSet = new Set(paths)
-    setResults((prev) =>
-      prev.map((row) =>
-        pathSet.has(row.path)
-          ? {
-              ...row,
-              category: 'Uncategorized',
-              subcategory: null,
-              confidence: 0,
-              matched_terms: [],
-              category_manual: false
-            }
-          : row
-      )
+    const paths = Array.from(multiSelected().keys())
+    await editLibrary(`Cleared category on ${plural(paths.length)}`, paths, () =>
+      window.api.clearCategories([...paths])
     )
-    setMultiSelected(
-      (prev) =>
-        new Map(
-          Array.from(prev.entries()).map(([p, row]) => [
-            p,
-            pathSet.has(p)
-              ? {
-                  ...row,
-                  category: 'Uncategorized',
-                  subcategory: null,
-                  confidence: 0,
-                  matched_terms: [],
-                  category_manual: false
-                }
-              : row
-          ])
-        )
-    )
-    setCategoryModalRows([])
-    await refreshFacets()
   }
 
   createEffect(() => {
@@ -616,6 +703,7 @@ function MainWorkstation() {
     channels()
     selectedCategory()
     selectedSubcategory()
+    selectedFolder()
     favoritesOnly()
     sortBy()
     sortDir()
@@ -643,7 +731,7 @@ function MainWorkstation() {
       return
     }
 
-    if (exportModalOpen() || categoryModalRows().length > 0 || showSettings() || slicerRow() || loopRow() || effectsRows().length > 0) {
+    if (exportModalOpen() || categoryModalRows().length > 0 || showSettings() || slicerRow() || loopRow() || effectsItems().length > 0) {
       return
     }
 
@@ -656,6 +744,18 @@ function MainWorkstation() {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
       e.preventDefault()
       openExportForSelection()
+      return
+    }
+
+    if ((e.ctrlKey || e.metaKey) && !isInput && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
+      e.preventDefault()
+      void redoEdit()
+      return
+    }
+
+    if ((e.ctrlKey || e.metaKey) && !isInput && e.key.toLowerCase() === 'z') {
+      e.preventDefault()
+      void undoEdit()
       return
     }
 
@@ -779,6 +879,9 @@ function MainWorkstation() {
           setSelectedCategory('')
           setSelectedSubcategory('')
         }}
+        selectedFolder={selectedFolder()}
+        libraryRoot={folder()?.folder ?? ''}
+        onClearFolder={() => setSelectedFolder('')}
         maxDuration={maxDuration()}
         onChangeMaxDuration={setMaxDuration}
         hasActiveFilters={hasActiveFilters()}
@@ -790,6 +893,10 @@ function MainWorkstation() {
         onOpenSlicer={() => openSlicer()}
         onOpenLoopTool={() => openLoopTool()}
         onOpenEffects={() => openEffects()}
+        undoLabel={undoLabel()}
+        redoLabel={redoLabel()}
+        onUndo={() => void undoEdit()}
+        onRedo={() => void redoEdit()}
         onOpenDragFolder={() => void window.api.openDragFolder()}
         canSlice={selectedRow() !== null}
         onOpenSettings={() => setShowSettings(true)}
@@ -849,6 +956,11 @@ function MainWorkstation() {
             onClose={() => setSidebarOpen(false)}
             onToggleOpen={toggleSidebar}
             onOpen={() => setSidebarOpen(true)}
+            mode={sidebarMode()}
+            onModeChange={changeSidebarMode}
+            folderTree={folderTree()}
+            selectedFolder={selectedFolder()}
+            onSelectFolder={setSelectedFolder}
           />
 
           {/* Library Column: Sound Table + Waveform Drawer */}
@@ -877,6 +989,7 @@ function MainWorkstation() {
               onRowClick={onRowClick}
               onRowDblClick={onRowDblClick}
               onRowDragStart={onRowDragStart}
+              onRowContextMenu={onRowContextMenu}
               onToggleFavorite={toggleRowFavorite}
               onOpenCategoryModal={openCategoryModalForRow}
               onRevealRow={revealRow}
@@ -921,6 +1034,15 @@ function MainWorkstation() {
         onOpenHelp={() => setShowHelp(true)}
       />
 
+      <ContextMenu
+        id="row-context-menu"
+        isOpen={rowMenu() !== null}
+        x={rowMenu()?.x ?? 0}
+        y={rowMenu()?.y ?? 0}
+        items={rowMenuItems()}
+        onClose={() => setRowMenu(null)}
+      />
+
       {/* Help Modal Guide */}
       <HelpModal isOpen={showHelp()} onClose={() => setShowHelp(false)} />
 
@@ -932,27 +1054,30 @@ function MainWorkstation() {
       <SlicerModal
         row={slicerRow()}
         seedRegion={slicerSeed()}
-        blocked={exportModalOpen()}
+        blocked={exportModalOpen() || effectsItems().length > 0}
         onClose={() => setSlicerRow(null)}
         onExport={(files) => openExport(files)}
+        onEffects={(items) => openEffectsFor(items, 'slices')}
       />
 
       {/* Seamless Loop: crossfade a region's tail into its head, export the loop. */}
       <SeamlessLoopModal
         row={loopRow()}
         seedRegion={loopSeed()}
-        blocked={exportModalOpen()}
+        blocked={exportModalOpen() || effectsItems().length > 0}
         onClose={() => setLoopRow(null)}
         onExport={(files) => openExport(files.map((f) => ({ ...f, excludeFades: true })))}
+        onEffects={(items) => openEffectsFor(items)}
       />
 
       {/* Effects: preview and render reverse/pitch/speed/fades/level to new files. */}
       <EffectsModal
-        rows={effectsRows()}
-        seedRegion={effectsSeed()}
+        items={effectsItems()}
+        noun={effectsNoun()}
         blocked={exportModalOpen()}
-        onClose={() => setEffectsRows([])}
+        onClose={() => setEffectsItems([])}
         onExport={(files, processing) => openExport(files, processing)}
+        onSendTo={sendEffectsResult}
       />
 
       {/* Shared Export Wizard Modal */}

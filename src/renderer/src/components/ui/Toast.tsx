@@ -6,6 +6,8 @@ export interface ToastItem {
   title: string;
   message?: string;
   type?: 'success' | 'warning' | 'error' | 'info';
+  // Optional button, e.g. "Undo". Toasts with an action stay up a little longer.
+  action?: { label: string; onClick: () => void };
 }
 
 const [toasts, setToasts] = createSignal<ToastItem[]>([]);
@@ -15,7 +17,7 @@ export function showToast(toast: Omit<ToastItem, 'id'>) {
   setToasts((prev) => [...prev, { ...toast, id }]);
   setTimeout(() => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
-  }, 4000);
+  }, toast.action ? 7000 : 4000);
 }
 
 export function ToastContainer() {
@@ -49,6 +51,20 @@ export function ToastContainer() {
                 <div class="text-md text-[var(--text-muted)] mt-0.5">{t.message}</div>
               </Show>
             </div>
+            <Show when={t.action}>
+              {(a) => (
+                <button
+                  type="button"
+                  onClick={() => {
+                    a().onClick();
+                    dismiss(t.id);
+                  }}
+                  class="h-6 px-2 rounded-[3px] border border-[var(--border-color)] text-md font-medium text-[var(--accent-color)] hover:bg-white/10 shrink-0"
+                >
+                  {a().label}
+                </button>
+              )}
+            </Show>
             <button
               type="button"
               onClick={() => dismiss(t.id)}

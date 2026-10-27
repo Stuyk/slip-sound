@@ -75,7 +75,7 @@ function buildArgs(params: ExportParams, filters: string[]): string[] {
   return args
 }
 
-function getFfmpegPath(): string | null {
+export function getFfmpegPath(): string | null {
   if (!ffmpegPath) return null
   return ffmpegPath.replace('app.asar', 'app.asar.unpacked')
 }

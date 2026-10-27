@@ -44,6 +44,9 @@ export interface WorkstationMenuBarProps {
   selectedCategory: string;
   selectedSubcategory: string;
   onClearCategory: () => void;
+  selectedFolder: string;
+  libraryRoot: string;
+  onClearFolder: () => void;
   maxDuration: string;
   onChangeMaxDuration: (duration: string) => void;
   hasActiveFilters: boolean;
@@ -67,6 +70,10 @@ export interface WorkstationMenuBarProps {
   onToggleInfiniteScroll: () => void;
   onToggleAutoPlay: () => void;
   onOpenEffects: () => void;
+  undoLabel: string | null;
+  redoLabel: string | null;
+  onUndo: () => void;
+  onRedo: () => void;
   onOpenDragFolder: () => void;
   onOpenHelp: () => void;
 }
@@ -265,6 +272,29 @@ export function WorkstationMenuBar(props: WorkstationMenuBarProps) {
           <Show when={activeMenu() === 'edit'}>
             <div id="menu-dropdown-edit" class="absolute left-0 top-full mt-1 w-72 bg-[#32353a] border border-[#1c1d1f] rounded-[3px] shadow-2xl py-1 z-50 text-md flex flex-col font-sans">
               <button
+                id="menu-item-undo"
+                type="button"
+                disabled={!props.undoLabel}
+                class="px-3 py-1.5 flex items-center justify-between hover:bg-[#007acc] hover:text-white text-[#f0f3f6] text-left disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
+                onClick={() => runAction(props.onUndo)}
+              >
+                <span class="truncate">{props.undoLabel ? `Undo: ${props.undoLabel}` : 'Undo'}</span>
+                <span class="text-md font-mono opacity-60 shrink-0 ml-2">Ctrl+Z</span>
+              </button>
+              <button
+                id="menu-item-redo"
+                type="button"
+                disabled={!props.redoLabel}
+                class="px-3 py-1.5 flex items-center justify-between hover:bg-[#007acc] hover:text-white text-[#f0f3f6] text-left disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
+                onClick={() => runAction(props.onRedo)}
+              >
+                <span class="truncate">{props.redoLabel ? `Redo: ${props.redoLabel}` : 'Redo'}</span>
+                <span class="text-md font-mono opacity-60 shrink-0 ml-2">Ctrl+Shift+Z</span>
+              </button>
+
+              <div class="h-px bg-[#1c1d1f] my-1" />
+
+              <button
                 id="menu-item-select-all"
                 type="button"
                 disabled={!props.hasFolder}
@@ -421,7 +451,7 @@ export function WorkstationMenuBar(props: WorkstationMenuBarProps) {
               >
                 <div class="flex items-center gap-2">
                   <PanelLeft size={13} />
-                  <span>Category Browser</span>
+                  <span>Sidebar (Categories / Folders)</span>
                 </div>
                 <div class="flex items-center gap-1.5">
                   <span class="text-md font-mono opacity-60">Ctrl+B</span>
@@ -542,6 +572,27 @@ export function WorkstationMenuBar(props: WorkstationMenuBarProps) {
                 class="ml-0.5 hover:text-white transition-colors cursor-pointer"
                 onClick={props.onClearCategory}
                 title="Clear category filter"
+              >
+                <X size={11} />
+              </button>
+            </div>
+          </Show>
+
+          {/* Active Folder Filter Chip */}
+          <Show when={props.selectedFolder}>
+            <div id="menubar-active-folder-chip" class="inline-flex items-center gap-1.5 h-7 min-h-[28px] px-2 rounded-[3px] bg-[#007acc]/20 border border-[#007acc] text-[#f0f3f6] text-md font-mono shrink-0" title={props.selectedFolder}>
+              <Folder size={11} class="text-[#007acc]" />
+              <span class="font-semibold truncate max-w-[220px]">
+                {props.selectedFolder.startsWith(props.libraryRoot)
+                  ? props.selectedFolder.slice(props.libraryRoot.length).replace(/^[\\/]/, '')
+                  : props.selectedFolder}
+              </span>
+              <button
+                id="menubar-clear-folder-btn"
+                type="button"
+                class="ml-0.5 hover:text-white transition-colors cursor-pointer"
+                onClick={props.onClearFolder}
+                title="Clear folder filter"
               >
                 <X size={11} />
               </button>

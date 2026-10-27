@@ -14,6 +14,7 @@ import { randomBytes, randomUUID } from 'crypto'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { z } from 'zod'
+import { isAbsolute, join } from 'path'
 import { DEFAULT_PROCESSING, LIMITS, type ProcessingSettings } from '../../shared/processing'
 
 export interface McpSoundRow {
@@ -37,6 +38,7 @@ export interface McpSearchParams {
   channels?: number
   category?: string
   subcategory?: string
+  folder?: string
   favoriteOnly?: boolean
   sortBy?: 'favorite' | 'filename' | 'category' | 'duration' | 'channels' | 'sample_rate' | 'filesize'
   sortDir?: 'asc' | 'desc'
@@ -128,6 +130,12 @@ function buildMcpServer(deps: McpDeps): McpServer {
         query: z.string().default('').describe('Filename search text (per-word prefix match), empty for no filter'),
         category: z.string().optional().describe('Exact category name, e.g. "Weapons"'),
         subcategory: z.string().optional().describe('Exact subcategory name, e.g. "Firearms"'),
+        folder: z
+          .string()
+          .optional()
+          .describe(
+            'Only sounds inside this folder (and its subfolders). Absolute, or relative to the library root, e.g. "Foley/Cloth"'
+          ),
         channels: z.number().int().optional().describe('1 for mono, 2 for stereo'),
         maxDuration: z.number().optional().describe('Only sounds shorter than this many seconds'),
         favoriteOnly: z.boolean().optional(),
@@ -146,8 +154,15 @@ function buildMcpServer(deps: McpDeps): McpServer {
           isError: true
         }
       }
-      const rows = deps.search(params)
-      const total = deps.countMatching(params)
+      const library = deps.getLibrary()!
+      const folder = params.folder
+        ? isAbsolute(params.folder)
+          ? params.folder
+          : join(library.folder, params.folder)
+        : undefined
+      const query = { ...params, folder }
+      const rows = deps.search(query)
+      const total = deps.countMatching(query)
       return {
         content: [{ type: 'text', text: JSON.stringify({ total, results: rows }, null, 2) }]
       }

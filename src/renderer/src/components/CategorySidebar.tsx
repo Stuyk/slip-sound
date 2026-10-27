@@ -1,7 +1,9 @@
 import { createSignal, createMemo, createEffect, For, Show, JSX } from 'solid-js'
-import { Badge } from './ui/Badge'
 import { SearchInput } from './ui/SearchInput'
 import { IconButton } from './ui/IconButton'
+import { SegmentedControl } from './ui/SegmentedControl'
+import { FolderTree, type FolderTreeApi } from './FolderTree'
+import type { FolderNode } from '../../../shared/folders'
 import {
   TagIcon,
   ChevronRightIcon,
@@ -15,8 +17,11 @@ import {
   SlidersIcon,
   MousePointerIcon,
   StarIcon,
-  Volume2Icon
+  Volume2Icon,
+  FolderIcon
 } from './icons'
+
+export type SidebarMode = 'categories' | 'folders'
 
 export interface CategorySidebarProps {
   facets: { category: string; subcategory: string | null; count: number }[]
@@ -30,6 +35,11 @@ export interface CategorySidebarProps {
   onClose: () => void
   onToggleOpen?: () => void
   onOpen?: () => void
+  mode: SidebarMode
+  onModeChange: (mode: SidebarMode) => void
+  folderTree: FolderNode | null
+  selectedFolder: string
+  onSelectFolder: (path: string) => void
 }
 
 interface CategoryGroup {
@@ -40,6 +50,9 @@ interface CategoryGroup {
 
 const EXPANDED_STORAGE_KEY = 'slipsound:sidebar-expanded'
 const WIDTH_STORAGE_KEY = 'slipsound:sidebar-width'
+// Narrowest width that still fits the Categories/Folders toggle and header buttons.
+const MIN_WIDTH = 290
+const MAX_WIDTH = 500
 
 function loadSavedExpanded(): Set<string> {
   try {
@@ -67,12 +80,13 @@ function loadSavedWidth(): number {
     const raw = localStorage.getItem(WIDTH_STORAGE_KEY)
     if (raw) {
       const w = parseInt(raw, 10)
-      if (!isNaN(w) && w >= 190 && w <= 500) return w
+      // Older versions allowed narrower sidebars; bring those up to the minimum.
+      if (!isNaN(w)) return Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, w))
     }
   } catch {
     // fallback
   }
-  return 270
+  return MIN_WIDTH
 }
 
 function getCategoryIcon(category: string): JSX.Element {
@@ -107,6 +121,10 @@ function getCategoryIcon(category: string): JSX.Element {
 export function CategorySidebar(props: CategorySidebarProps): JSX.Element {
   const [expanded, setExpandedState] = createSignal<Set<string>>(loadSavedExpanded())
   const [filterText, setFilterText] = createSignal('')
+  const [folderFilter, setFolderFilter] = createSignal('')
+  const [folderApi, setFolderApi] = createSignal<FolderTreeApi | null>(null)
+  const folders = (): boolean => props.mode === 'folders'
+  const allExpanded = (): boolean => (folders() ? (folderApi()?.isAllExpanded() ?? false) : isAllExpanded())
   const [width, setWidth] = createSignal(loadSavedWidth())
 
   let preFilterExpanded: Set<string> | null = null
@@ -125,7 +143,7 @@ export function CategorySidebar(props: CategorySidebarProps): JSX.Element {
     const onMouseMove = (moveEvent: MouseEvent): void => {
       if (!isResizing) return
       const delta = moveEvent.clientX - startX
-      const newWidth = Math.min(500, Math.max(190, startWidth + delta))
+      const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, startWidth + delta))
       setWidth(newWidth)
     }
 
@@ -290,11 +308,11 @@ export function CategorySidebar(props: CategorySidebarProps): JSX.Element {
             if (props.onOpen) props.onOpen()
             else if (props.onToggleOpen) props.onToggleOpen()
           }}
-          title="Expand Categories (Ctrl+B)"
+          title={`Expand ${folders() ? 'Folders' : 'Categories'} (Ctrl+B)`}
         >
           <div class="flex flex-col items-center gap-2">
             <div class="w-6 h-6 rounded flex items-center justify-center text-[#007acc] group-hover:text-white transition-colors">
-              <TagIcon size={14} />
+              {folders() ? <FolderIcon size={14} /> : <TagIcon size={14} />}
             </div>
             <div class="w-3.5 h-px bg-[#1c1d1f] group-hover:bg-[#007acc]/40 transition-colors" />
           </div>
@@ -309,7 +327,7 @@ export function CategorySidebar(props: CategorySidebarProps): JSX.Element {
                 'transform': 'rotate(180deg)'
               }}
             >
-              Categories
+              {folders() ? 'Folders' : 'Categories'}
             </span>
           </div>
 
@@ -323,33 +341,42 @@ export function CategorySidebar(props: CategorySidebarProps): JSX.Element {
         id="category-sidebar"
         class="relative flex flex-col h-full bg-[#26282b] border-r border-[#1c1d1f] select-none shrink-0 overflow-hidden"
         style={{
-          width: `${width()}px`
+          width: `${width()}px`,
+          'min-width': `${MIN_WIDTH}px`
         }}
       >
       {/* Sidebar Header */}
       <div id="category-sidebar-header" class="h-11 min-h-[44px] px-3 bg-[#26282b] border-b border-[#1c1d1f] flex items-center justify-between shrink-0">
-        <div id="category-sidebar-title" class="flex items-center gap-1.5 font-bold text-md uppercase tracking-wider text-[#f0f3f6]">
-          <TagIcon size={14} class="shrink-0 text-[#007acc]" />
-          <span>Categories</span>
-          <Badge variant="default" class="ml-1 text-md">{categoryGroups().length}</Badge>
-        </div>
+        <SegmentedControl
+          id="sidebar-mode"
+          value={props.mode}
+          onChange={(v) => props.onModeChange(v as SidebarMode)}
+          items={[
+            { id: 'categories', label: 'Categories', icon: TagIcon },
+            { id: 'folders', label: 'Folders', icon: FolderIcon }
+          ]}
+        />
 
         <div id="category-sidebar-header-actions" class="flex items-center gap-1.5">
           <IconButton
             id="category-sidebar-toggle-all-btn"
             size="sm"
-            active={isAllExpanded()}
-            tooltip={isAllExpanded() ? 'Collapse all categories' : 'Expand all categories'}
-            onClick={toggleAll}
+            active={allExpanded()}
+            tooltip={
+              allExpanded()
+                ? `Collapse all ${folders() ? 'folders' : 'categories'}`
+                : `Expand all ${folders() ? 'folders' : 'categories'}`
+            }
+            onClick={() => (folders() ? folderApi()?.toggleAll() : toggleAll())}
           >
-            <Show when={isAllExpanded()} fallback={<ChevronDownIcon size={13} />}>
+            <Show when={allExpanded()} fallback={<ChevronDownIcon size={13} />}>
               <ChevronUpIcon size={13} />
             </Show>
           </IconButton>
           <IconButton
             id="category-sidebar-close-btn"
             size="sm"
-            tooltip="Collapse categories sidebar (Ctrl+B)"
+            tooltip="Collapse sidebar (Ctrl+B)"
             onClick={props.onClose}
           >
             <ChevronLeftIcon size={14} />
@@ -357,6 +384,36 @@ export function CategorySidebar(props: CategorySidebarProps): JSX.Element {
         </div>
       </div>
 
+      {/* Folder tree */}
+      <Show when={folders()}>
+        <div id="folder-filter-container" class="px-2.5 py-1.5 border-b border-[#1c1d1f] bg-[#26282b]">
+          <SearchInput
+            id="folder-filter-input"
+            value={folderFilter()}
+            onInput={setFolderFilter}
+            placeholder="Filter folders…"
+            onClear={() => setFolderFilter('')}
+          />
+        </div>
+        <div id="folder-sidebar-list" class="flex-1 overflow-y-auto min-h-0 dcc-scroll py-1.5">
+          <Show
+            when={props.folderTree}
+            fallback={<div class="p-4 text-center text-md text-[#8b949e]">Reading folders…</div>}
+          >
+            {(tree) => (
+              <FolderTree
+                tree={tree()}
+                selected={props.selectedFolder}
+                filter={folderFilter()}
+                onSelect={props.onSelectFolder}
+                onApi={setFolderApi}
+              />
+            )}
+          </Show>
+        </div>
+      </Show>
+
+      <Show when={!folders()}>
       {/* Quick Search within Categories */}
       <Show when={categoryGroups().length > 4}>
         <div id="category-filter-container" class="px-2.5 py-1.5 border-b border-[#1c1d1f] bg-[#26282b]">
@@ -485,6 +542,7 @@ export function CategorySidebar(props: CategorySidebarProps): JSX.Element {
           }}
         </For>
       </div>
+      </Show>
 
       {/* Draggable resize handle */}
       <div

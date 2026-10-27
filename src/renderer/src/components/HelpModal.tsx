@@ -72,6 +72,14 @@ export default function HelpModal(props: { isOpen: boolean; onClose: () => void 
               <div class="flex gap-1"><Kbd>Ctrl</Kbd>+<Kbd>E</Kbd></div>
             </div>
             <div class="flex items-center justify-between py-0.5 border-b border-[var(--border-color)]/50">
+              <span class="text-[var(--text-main)]">Undo / Redo (categories, favorites)</span>
+              <div class="flex gap-1"><Kbd>Ctrl</Kbd>+<Kbd>Z</Kbd> / <Kbd>Ctrl</Kbd>+<Kbd>Shift</Kbd>+<Kbd>Z</Kbd></div>
+            </div>
+            <div class="flex items-center justify-between py-0.5 border-b border-[var(--border-color)]/50">
+              <span class="text-[var(--text-main)]">More actions for a sound</span>
+              <span class="text-[var(--text-muted)]">Right-click</span>
+            </div>
+            <div class="flex items-center justify-between py-0.5 border-b border-[var(--border-color)]/50">
               <span class="text-[var(--text-main)]">Slice Sound Into Files</span>
               <div class="flex gap-1"><Kbd>Ctrl</Kbd>+<Kbd>K</Kbd></div>
             </div>
@@ -84,7 +92,7 @@ export default function HelpModal(props: { isOpen: boolean; onClose: () => void 
               <div class="flex gap-1"><Kbd>Ctrl</Kbd>+<Kbd>P</Kbd></div>
             </div>
             <div class="flex items-center justify-between py-0.5 border-b border-[var(--border-color)]/50">
-              <span class="text-[var(--text-main)]">Toggle Categories Sidebar</span>
+              <span class="text-[var(--text-main)]">Toggle Sidebar (Categories / Folders)</span>
               <div class="flex gap-1"><Kbd>Ctrl</Kbd>+<Kbd>B</Kbd></div>
             </div>
             <div class="flex items-center justify-between py-0.5 border-b border-[var(--border-color)]/50">

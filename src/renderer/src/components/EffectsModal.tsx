@@ -18,6 +18,8 @@ import {
   Pause,
   Play,
   RefreshCw,
+  Repeat,
+  Scissors,
   RotateCcw,
   Save,
   SlidersHorizontal,
@@ -25,7 +27,7 @@ import {
   Volume2,
   VolumeX
 } from 'lucide-solid'
-import type { SoundRow } from '../../../preload/index'
+import type { RenderRequest, SoundRow } from '../../../preload/index'
 import type { ExportFile } from './ExportModal'
 import { Modal } from './ui/Modal'
 import { Button } from './ui/Button'
@@ -33,6 +35,7 @@ import { IconButton } from './ui/IconButton'
 import { Kbd } from './ui/Kbd'
 import { SegmentedControl } from './ui/SegmentedControl'
 import { showToast } from './ui/Toast'
+import { startRenderedDrag } from '../dragExports'
 import { buildPeaks } from '../slicer'
 import {
   RULER_H,
@@ -80,21 +83,56 @@ const RESULT_COLOR = '#f5a524'
 
 type Listen = 'effects' | 'original'
 
+// One thing to process: a library sound, a slice of one (region), or a file made by
+// another tool (virtual, e.g. a seamless loop), with an optional output name.
+export interface EffectsItem {
+  row: SoundRow
+  region?: { start: number; end: number } | null
+  name?: string
+  // Seamless loop output: fades would break the loop join, so they're skipped.
+  excludeFades?: boolean
+  // Not a library file (a temp render); always dragged as a rendered copy.
+  virtual?: boolean
+}
+
+// A SoundRow for a file that isn't in the library, so the tools can open it.
+export function virtualRow(path: string, filename: string, duration: number | null): SoundRow {
+  return {
+    id: -1,
+    path,
+    filename,
+    duration,
+    channels: null,
+    sample_rate: null,
+    filesize: null,
+    category: 'Uncategorized',
+    subcategory: null,
+    confidence: 0,
+    matched_terms: [],
+    favorite: false,
+    category_manual: false
+  }
+}
+
+export type SendTarget = 'slicer' | 'loop'
+
 export interface EffectsModalProps {
-  // The sound(s) to process. One sound may carry a region from the main waveform.
-  rows: SoundRow[]
-  seedRegion?: { start: number; end: number } | null
+  items: EffectsItem[]
+  // What the items are, for labels: "sounds", "slices".
+  noun?: string
   // True while another modal (export) sits on top; keys/close are ignored.
   blocked: boolean
   onClose: () => void
   onExport: (files: ExportFile[], processing: ProcessingSettings | undefined) => void
+  // Open the processed result in another tool.
+  onSendTo?: (target: SendTarget, row: SoundRow) => void
 }
 
 export default function EffectsModal(props: EffectsModalProps): JSX.Element {
   return (
     <Modal
       id="effects-modal"
-      isOpen={props.rows.length > 0}
+      isOpen={props.items.length > 0}
       onClose={() => {
         if (!props.blocked) props.onClose()
       }}
@@ -102,7 +140,9 @@ export default function EffectsModal(props: EffectsModalProps): JSX.Element {
         <div class="flex items-center gap-2.5 min-w-0">
           <span>Effects</span>
           <span class="normal-case tracking-normal font-normal text-[var(--text-muted)] truncate">
-            {props.rows.length === 1 ? props.rows[0].filename : `${props.rows.length} sounds`}
+            {props.items.length === 1
+              ? (props.items[0].name ?? props.items[0].row.filename)
+              : `${props.items.length} ${props.noun ?? 'sounds'}`}
           </span>
         </div>
       }
@@ -110,12 +150,13 @@ export default function EffectsModal(props: EffectsModalProps): JSX.Element {
       width="1280px"
       bodyClass="p-0!"
     >
-      <Show when={props.rows.length > 0}>
+      <Show when={props.items.length > 0}>
         <EffectsEditor
-          rows={props.rows}
-          region={props.rows.length === 1 ? (props.seedRegion ?? null) : null}
+          items={props.items}
+          noun={props.noun ?? 'sounds'}
           blocked={props.blocked}
           onExport={props.onExport}
+          onSendTo={props.onSendTo}
         />
       </Show>
     </Modal>
@@ -126,10 +167,11 @@ const fmtDb = (v: number | null, unit = ' dB'): string =>
   v === null ? '–∞' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(1)}${unit}`
 
 function EffectsEditor(props: {
-  rows: SoundRow[]
-  region: { start: number; end: number } | null
+  items: EffectsItem[]
+  noun: string
   blocked: boolean
   onExport: (files: ExportFile[], processing: ProcessingSettings | undefined) => void
+  onSendTo?: (target: SendTarget, row: SoundRow) => void
 }): JSX.Element {
   let origCanvas: HTMLCanvasElement | undefined
   let origWrap: HTMLDivElement | undefined
@@ -138,8 +180,22 @@ function EffectsEditor(props: {
 
   // ---- Which sound is being previewed (multi-selection: step through them) ----
   const [previewIdx, setPreviewIdx] = createSignal(0)
-  const row = (): SoundRow => props.rows[Math.min(previewIdx(), props.rows.length - 1)]
-  const multi = (): boolean => props.rows.length > 1
+  const item = (): EffectsItem => props.items[Math.min(previewIdx(), props.items.length - 1)]
+  const row = (): SoundRow => item().row
+  const region = (): { start: number; end: number } | null => item().region ?? null
+  const multi = (): boolean => props.items.length > 1
+  const count = (): number => props.items.length
+  const itemName = (it: EffectsItem): string => it.name ?? stemOf(it.row.filename)
+  const renderRequest = (
+    it: EffectsItem,
+    processing: ProcessingSettings | undefined
+  ): RenderRequest => ({
+    sourcePath: it.row.path,
+    start: it.region?.start,
+    end: it.region?.end,
+    processing,
+    excludeFades: it.excludeFades
+  })
 
   // ---- Audio ----
   let audioCtx: AudioContext | undefined
@@ -188,12 +244,14 @@ function EffectsEditor(props: {
   const span = (): { start: number; end: number } => {
     const o = original()
     const dur = o?.buffer.duration ?? row().duration ?? 0
-    const r = props.region
+    const r = region()
     return r ? { start: Math.max(0, r.start), end: Math.min(dur, r.end) } : { start: 0, end: dur }
   }
 
   // ---- Processed result for the previewed sound ----
-  const [result, setResult] = createSignal<(Decoded & { forKey: string }) | null>(null)
+  const [result, setResult] = createSignal<(Decoded & { forKey: string; path: string }) | null>(
+    null
+  )
   const [rendering, setRendering] = createSignal(false)
   const [renderError, setRenderError] = createSignal<string | null>(null)
   const [readout, setReadout] = createSignal<{
@@ -204,10 +262,9 @@ function EffectsEditor(props: {
   let renderToken = 0
 
   createEffect(() => {
-    const r = row()
+    const it = item()
     const settings = rack()
     const active = rackActive()
-    const region = props.region
     clearTimeout(renderTimer)
     const token = ++renderToken
     setRenderError(null)
@@ -219,15 +276,10 @@ function EffectsEditor(props: {
     setRendering(true)
     renderTimer = setTimeout(async () => {
       try {
-        const res = await window.api.renderProcessed({
-          sourcePath: r.path,
-          start: region?.start,
-          end: region?.end,
-          processing: settings
-        })
+        const res = await window.api.renderProcessed(renderRequest(it, settings))
         const d = await decode(res.path)
         if (token !== renderToken) return
-        setResult({ ...d, forKey: res.key })
+        setResult({ ...d, forKey: res.key, path: res.path })
       } catch (err) {
         if (token !== renderToken) return
         setResult(null)
@@ -242,9 +294,8 @@ function EffectsEditor(props: {
   let measureTimer: ReturnType<typeof setTimeout> | undefined
   let measureToken = 0
   createEffect(() => {
-    const r = row()
+    const it = item()
     const settings = { ...rack(), enabled: true }
-    const region = props.region
     clearTimeout(measureTimer)
     const token = ++measureToken
     if (!capabilities().ebur128) {
@@ -253,12 +304,7 @@ function EffectsEditor(props: {
     }
     measureTimer = setTimeout(async () => {
       try {
-        const res = await window.api.measureLoudness({
-          sourcePath: r.path,
-          start: region?.start,
-          end: region?.end,
-          processing: settings
-        })
+        const res = await window.api.measureLoudness(renderRequest(it, settings))
         if (token === measureToken) setReadout({ m: res.measurement, gain: res.gain })
       } catch {
         if (token === measureToken) setReadout(null)
@@ -398,25 +444,21 @@ function EffectsEditor(props: {
   let dragTimer: ReturnType<typeof setTimeout> | undefined
   let dragToken = 0
   createEffect(() => {
-    const rows = props.rows
+    const items = props.items
     const settings = rack()
     const active = rackActive()
-    const region = props.region
     clearTimeout(dragTimer)
     const token = ++dragToken
     setDragFiles(null)
     setDragDone(0)
-    if (rows.length > MAX_DRAG || (!active && !region)) return
+    if (items.length > MAX_DRAG || rawDrag()) return
     dragTimer = setTimeout(async () => {
       const out: Array<{ path: string; name: string }> = []
-      for (const r of rows) {
+      for (const it of items) {
         try {
-          const res = await window.api.renderProcessed({
-            sourcePath: r.path,
-            start: region?.start,
-            end: region?.end,
-            processing: active ? settings : undefined
-          })
+          const res = await window.api.renderProcessed(
+            renderRequest(it, active ? settings : undefined)
+          )
           if (token !== dragToken) return
           out.push({ path: res.path, name: res.name })
         } catch {
@@ -430,33 +472,50 @@ function EffectsEditor(props: {
   })
   onCleanup(() => clearTimeout(dragTimer))
 
-  const rawDrag = (): boolean => !rackActive() && !props.region
+  // Whole library files with no effects drag as themselves; anything else is rendered.
+  const rawDrag = (): boolean =>
+    !rackActive() && props.items.every((it) => !it.region && !it.virtual)
   const dragReady = (): boolean => rawDrag() || (dragFiles()?.length ?? 0) > 0
   const dragLabel = (): string => {
-    if (props.rows.length > MAX_DRAG) return `Drag is limited to ${MAX_DRAG} sounds`
-    if (rawDrag()) return multi() ? `Drag ${props.rows.length} originals` : 'Drag original'
-    if (!dragFiles()) return `Preparing ${dragDone()}/${props.rows.length}…`
-    return multi() ? `Drag ${dragFiles()!.length} processed` : 'Drag result'
+    if (count() > MAX_DRAG) return `Drag is limited to ${MAX_DRAG} ${props.noun}`
+    if (rawDrag()) return multi() ? `Drag ${count()} originals` : 'Drag original'
+    if (!dragFiles()) return `Preparing ${dragDone()}/${count()}…`
+    return multi()
+      ? `Drag ${dragFiles()!.length} ${rackActive() ? 'processed' : props.noun}`
+      : 'Drag result'
   }
 
   function onDragStart(e: DragEvent): void {
     e.preventDefault()
-    if (rawDrag()) window.api.startDrag(props.rows.map((r) => r.path))
-    else if (dragFiles()?.length) window.api.startDragRendered(dragFiles()!)
+    if (rawDrag()) window.api.startDrag(props.items.map((it) => it.row.path))
+    else if (dragFiles()?.length) startRenderedDrag(dragFiles()!)
   }
 
   // ---- Export ----
   function exportAll(): void {
     stop()
-    const region = props.region
     props.onExport(
-      props.rows.map((r) => ({
-        sourcePath: r.path,
-        filename: r.filename,
-        start: region?.start,
-        end: region?.end
+      props.items.map((it) => ({
+        sourcePath: it.row.path,
+        filename: it.row.filename,
+        start: it.region?.start,
+        end: it.region?.end,
+        name: it.name,
+        excludeFades: it.excludeFades
       })),
       rackActive() ? rack() : undefined
+    )
+  }
+
+  // Hands the rendered result to the Slicer or Seamless Loop tool.
+  function sendTo(target: SendTarget): void {
+    const r = result()
+    if (!r || !props.onSendTo) return
+    stop()
+    const tag = suffixFor(rack())
+    props.onSendTo(
+      target,
+      virtualRow(r.path, `${itemName(item())}${tag ? `__${tag}` : ''}.wav`, r.buffer.duration)
     )
   }
 
@@ -582,7 +641,7 @@ function EffectsEditor(props: {
       setPreviewIdx((i) => Math.max(0, i - 1))
     } else if (multi() && e.key === 'ArrowRight') {
       e.preventDefault()
-      setPreviewIdx((i) => Math.min(props.rows.length - 1, i + 1))
+      setPreviewIdx((i) => Math.min(count() - 1, i + 1))
     }
   }
 
@@ -608,7 +667,7 @@ function EffectsEditor(props: {
   const summary = createMemo(() => describeEffects(rack()))
   const exampleName = (): string => {
     const tag = rackActive() ? suffixFor(rack()) : ''
-    return `${stemOf(row().filename)}${tag ? `__${tag}` : ''}.wav`
+    return `${itemName(item())}${tag ? `__${tag}` : ''}.wav`
   }
 
   return (
@@ -667,8 +726,8 @@ function EffectsEditor(props: {
             />
           </div>
           <span class="font-mono text-md tabular-nums text-[var(--text-muted)] px-2">
-            <span class="text-[var(--accent-color)]">{formatTime(pos(), 2)}</span> /{' '}
-            {formatTime(lengthOf(hearing()), 2)}
+            <span class="text-[var(--accent-color)]">{formatTime(pos())}</span> /{' '}
+            {formatTime(lengthOf(hearing()))}
           </span>
           <div class="flex-1" />
           <Button
@@ -693,12 +752,12 @@ function EffectsEditor(props: {
                 <ChevronLeft size={14} />
               </IconButton>
               <span class="tabular-nums whitespace-nowrap">
-                Previewing {previewIdx() + 1} of {props.rows.length}
+                Previewing {previewIdx() + 1} of {count()}
               </span>
               <IconButton
                 size="sm"
-                onClick={() => setPreviewIdx((i) => Math.min(props.rows.length - 1, i + 1))}
-                disabled={previewIdx() >= props.rows.length - 1}
+                onClick={() => setPreviewIdx((i) => Math.min(count() - 1, i + 1))}
+                disabled={previewIdx() >= count() - 1}
                 tooltip="Next sound (→)"
               >
                 <ChevronRight size={14} />
@@ -714,10 +773,8 @@ function EffectsEditor(props: {
               Original
               <span class="font-normal text-[var(--text-muted)]">
                 {' '}
-                · {row().filename}
-                {props.region
-                  ? ` · ${props.region.start.toFixed(2)}s – ${props.region.end.toFixed(2)}s`
-                  : ''}
+                · {item().name ?? row().filename}
+                {region() ? ` · ${formatTime(region()!.start)} – ${formatTime(region()!.end)}` : ''}
               </span>
             </span>
             <span class="text-[var(--text-muted)]">Click a waveform to play it from there</span>
@@ -799,13 +856,41 @@ function EffectsEditor(props: {
           <div class="flex flex-col min-w-0 flex-1 text-md">
             <span class="text-[var(--text-muted)]">
               {multi()
-                ? `Drag or export applies these effects to all ${props.rows.length} sounds. Originals are never changed.`
+                ? `Drag or export applies these effects to all ${count()} ${props.noun}. Originals are never changed.`
                 : 'Drag or export to get the result as a new file. The original is never changed.'}
+              {props.items.some((it) => it.excludeFades) &&
+              (rack().fadeIn > 0 || rack().fadeOut > 0)
+                ? ' Fades are skipped so the loop stays seamless.'
+                : ''}
             </span>
             <span class="font-mono text-[var(--text-main)] truncate" title="Output file name">
               {exampleName()}
             </span>
           </div>
+          <Show when={props.onSendTo && !multi()}>
+            <Button
+              id="effects-send-slicer"
+              size="sm"
+              icon={<Scissors size={13} />}
+              onClick={() => sendTo('slicer')}
+              disabled={!result()}
+              title={result() ? 'Cut the processed result into slices' : 'Add an effect first'}
+            >
+              Slice result…
+            </Button>
+            <Button
+              id="effects-send-loop"
+              size="sm"
+              icon={<Repeat size={13} />}
+              onClick={() => sendTo('loop')}
+              disabled={!result()}
+              title={
+                result() ? 'Make a seamless loop from the processed result' : 'Add an effect first'
+              }
+            >
+              Loop result…
+            </Button>
+          </Show>
           <div
             id="effects-drag-handle"
             draggable={dragReady()}
@@ -831,7 +916,9 @@ function EffectsEditor(props: {
             icon={<Download size={13} />}
             title="Export with these effects (Ctrl+E)"
           >
-            {multi() ? `Export ${props.rows.length} Sounds…` : 'Export…'}
+            {multi()
+              ? `Export ${count()} ${props.noun[0].toUpperCase()}${props.noun.slice(1)}…`
+              : 'Export…'}
           </Button>
         </div>
       </div>

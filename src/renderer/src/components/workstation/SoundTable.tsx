@@ -39,6 +39,7 @@ export interface SoundTableProps {
   onRowClick: (index: number, e: MouseEvent) => void;
   onRowDblClick: (index: number, e: MouseEvent) => void;
   onRowDragStart: (index: number, e: DragEvent) => void;
+  onRowContextMenu: (index: number, e: MouseEvent) => void;
   onToggleFavorite: (row: SoundRow, e: MouseEvent) => void;
   onOpenCategoryModal: (row: SoundRow) => void;
   onRevealRow: (row: SoundRow, e: MouseEvent) => void;
@@ -273,6 +274,7 @@ export function SoundTable(props: SoundTableProps) {
               onClick={(e) => props.onRowClick(i(), e)}
               onDblClick={(e) => props.onRowDblClick(i(), e)}
               onDragStart={(e) => props.onRowDragStart(i(), e)}
+              onContextMenu={(e) => props.onRowContextMenu(i(), e)}
               title={row.path}
             >
               <div class="flex items-center justify-center">

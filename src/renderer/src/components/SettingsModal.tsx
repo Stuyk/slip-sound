@@ -5,6 +5,7 @@ import { Switch } from './ui/Switch';
 import { Badge } from './ui/Badge';
 import { Button } from './ui/Button';
 import { IconButton } from './ui/IconButton';
+import { DragExportSettings } from './DragExportSettings';
 import {
   Settings,
   Copy,
@@ -110,6 +111,8 @@ export default function SettingsModal(props: { isOpen: boolean; onClose: () => v
             />
           </div>
         </div>
+
+        <DragExportSettings />
 
         {/* Section: MCP AI Server */}
         <div id="settings-section-mcp" class="bg-black/20 border border-[var(--border-color)] rounded-[3px] p-3 flex flex-col gap-3">

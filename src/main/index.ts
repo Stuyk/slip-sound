@@ -13,7 +13,12 @@ import {
   countSounds,
   countMatchingSounds,
   getCategoryFacets,
+  getFolderTree,
+  getSoundStates,
+  restoreSoundStates,
+  type SoundState,
   toggleFavorite,
+  setFavorite,
   setCategory,
   setCategories,
   clearCategory,
@@ -22,6 +27,7 @@ import {
   SearchParams
 } from './db'
 import { reindexFolder } from './indexer'
+import { getWaveformPeaks, trimPeaksCache } from './peaks'
 import { getRecentFolders, addRecentFolder, removeRecentFolder } from './recent'
 import {
   getLastExportFolder,
@@ -326,9 +332,33 @@ app.whenReady().then(() => {
     return countMatchingSounds(currentDb, params)
   })
 
+  ipcMain.handle('sounds:states', (_e, paths: string[]) => {
+    if (!currentDb) return []
+    return getSoundStates(currentDb, paths)
+  })
+
+  ipcMain.handle('sounds:restore-states', (_e, states: SoundState[]) => {
+    if (!currentDb) throw new Error('No library open')
+    restoreSoundStates(currentDb, states)
+  })
+
+  ipcMain.handle('waveform:peaks', async (_e, path: string) => {
+    return getWaveformPeaks(path)
+  })
+
+  ipcMain.handle('sounds:folder-tree', () => {
+    if (!currentDb || !currentFolder) return null
+    return getFolderTree(currentDb, currentFolder)
+  })
+
   ipcMain.handle('sounds:category-facets', () => {
     if (!currentDb) return []
     return getCategoryFacets(currentDb)
+  })
+
+  ipcMain.handle('sounds:set-favorites', (_e, paths: string[], favorite: boolean) => {
+    if (!currentDb) return
+    for (const p of paths) setFavorite(currentDb, p, favorite)
   })
 
   ipcMain.handle('sounds:toggle-favorite', (_e, path: string) => {
@@ -574,6 +604,7 @@ app.whenReady().then(() => {
 
   try {
     trimRenderCache()
+    trimPeaksCache()
   } catch {
     // cache trimming is best-effort
   }

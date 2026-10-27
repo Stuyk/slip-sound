@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Repeat,
   Scissors,
+  SlidersHorizontal,
   Trash2,
   Undo2,
   Volume2,
@@ -19,6 +20,7 @@ import {
 } from 'lucide-solid'
 import type { SoundRow } from '../../../preload/index'
 import type { ExportFile } from './ExportModal'
+import type { EffectsItem } from './EffectsModal'
 import { Modal } from './ui/Modal'
 import { Button } from './ui/Button'
 import { IconButton } from './ui/IconButton'
@@ -74,6 +76,8 @@ export interface SlicerModalProps {
   blocked: boolean
   onClose: () => void
   onExport: (files: ExportFile[]) => void
+  // Open the slices in the Effects window.
+  onEffects?: (items: EffectsItem[]) => void
 }
 
 export default function SlicerModal(props: SlicerModalProps): JSX.Element {
@@ -103,6 +107,7 @@ export default function SlicerModal(props: SlicerModalProps): JSX.Element {
             seedRegion={props.seedRegion}
             blocked={props.blocked}
             onExport={props.onExport}
+            onEffects={props.onEffects}
           />
         )}
       </Show>
@@ -115,6 +120,7 @@ function SlicerEditor(props: {
   seedRegion?: { start: number; end: number } | null
   blocked: boolean
   onExport: (files: ExportFile[]) => void
+  onEffects?: (items: EffectsItem[]) => void
 }): JSX.Element {
   let canvas: HTMLCanvasElement | undefined
   let canvasWrap: HTMLDivElement | undefined
@@ -409,6 +415,15 @@ function SlicerEditor(props: {
         end: s.end,
         name: outputName(s, i)
       }))
+    )
+  }
+
+  function effectsForSlices(): void {
+    const list = slices()
+    if (list.length === 0 || !props.onEffects) return
+    stop()
+    props.onEffects(
+      list.map((s, i) => ({ row: props.row, region: { start: s.start, end: s.end }, name: outputName(s, i) }))
     )
   }
 
@@ -1095,7 +1110,7 @@ function SlicerEditor(props: {
             <Badge variant="accent">{slices().length}</Badge>
             <Show when={slices().length > 0}>
               <span class="font-mono text-md text-[var(--text-muted)]">
-                {totalSliceSec().toFixed(2)}s total
+                {formatTime(totalSliceSec())} total
               </span>
             </Show>
           </div>
@@ -1110,6 +1125,18 @@ function SlicerEditor(props: {
             >
               Clear All
             </Button>
+            <Show when={props.onEffects}>
+              <Button
+                id="slicer-effects-btn"
+                size="sm"
+                onClick={effectsForSlices}
+                disabled={slices().length === 0}
+                icon={<SlidersHorizontal size={13} />}
+                title="Add effects to every slice, then drag or export them"
+              >
+                Effects…
+              </Button>
+            </Show>
             <Button
               id="slicer-export-btn"
               variant="primary"
@@ -1182,7 +1209,7 @@ function SlicerEditor(props: {
                     class="h-7 px-2 bg-[#1e2022] border border-[#1c1d1f] focus:border-[#007acc] rounded-[3px] font-mono text-md tabular-nums text-[#f0f3f6] focus:outline-none"
                   />
                   <span class="font-mono text-md tabular-nums text-right text-[var(--text-muted)]">
-                    {(s.end - s.start).toFixed(3)}s
+                    {formatTime(s.end - s.start)}
                   </span>
                   <div class="flex items-center justify-end gap-1">
                     <IconButton

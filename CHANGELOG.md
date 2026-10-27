@@ -1,5 +1,37 @@
 # Changelog
 
+## v2.3.0
+
+### Added
+
+- Folders view ([#3](https://github.com/Stuyk/slip-sound/issues/3)): browse your library by its real folder structure. Switch the left sidebar between **Categories** and **Folders**.
+  - Expand and collapse folders. Each folder shows how many sounds are in it and everything under it. Expand/collapse all works on the top level, and your expanded folders are remembered for each library.
+  - Click a folder to show only the sounds in it and its subfolders. Search, channel, duration and favorite filters all still apply inside it, and so do Select All and Export. Click it again, or the chip next to the search box, to clear it.
+  - Filter folders by name; matching folders open up to show where they are.
+  - Switching between Categories and Folders clears the other view's filter, so the list is never narrowed by something you can't see.
+  - The MCP `search_sounds` tool takes a new `folder` option (absolute, or relative to the library root, e.g. `Foley/Cloth`).
+- Right-click a sound for its actions: Play, Effects, Slice, Seamless Loop, Export, Reveal in File Manager, Show in Folders, Copy Path, Favorite, Set Category and Clear Category. With several sounds selected, right-clicking one of them acts on the whole selection.
+- Undo and redo for library edits (`Ctrl+Z` / `Ctrl+Shift+Z`, or Edit → Undo/Redo, which name what they'll undo). Covers category changes and favorites, including bulk edits; a toast after each edit has an Undo button.
+- Tools connect to each other:
+  - **Slicer → Effects:** add effects to every slice at once, then drag or export them with their slice names.
+  - **Seamless Loop → Effects:** add effects to the finished loop (fades are skipped so it stays seamless).
+  - **Effects → Slicer / Seamless Loop:** "Slice result…" and "Loop result…" open the processed sound in that tool.
+- Drag Exports settings in Settings: see the folder, open or change it, and pick the WAV format. The first time you drag out a region or Effects result in a session, a toast says where the copy was saved, with a button to open the folder.
+
+### Changed
+
+- The sidebar is never narrower than 290px, so the Categories/Folders toggle and its buttons always fit. Sidebars saved at a narrower width open at the minimum.
+- Search matches each word on its own, in any order: "door squeak" finds `Squeaky_Door_02.wav`. Words inside names joined by `_`, `-` or `.` are now found too ("squeaky" went from 57 to 67 matches in a 178k library), accents are ignored, and folder names are searchable ("rain" finds sounds in a `Rain` folder). Existing libraries update their search index automatically the first time they're opened (about a second for 178k sounds).
+- The main waveform loads much faster for long files. It's now read and cached by the app instead of decoding the whole file every time you select a sound, so revisiting a sound is instant. Files that can't be read now say so on the waveform instead of showing nothing.
+- Times use one format everywhere (`m:ss.mmm`): the main waveform, region chip, Effects, Slicer, Seamless Loop and the Export dialog.
+- The status bar no longer repeats the result count the search box already shows; it shows the library size ("178,825 sounds").
+- The right-click menu component was restyled to match the app (32px rows, stays on screen near window edges).
+
+### Fixed
+
+- The CI test step now downloads ffmpeg before running the processing tests.
+- Sounds whose file headers report a wrong sample rate (some OGG files) now show their real length on the main waveform.
+
 ## v2.2.0
 
 ### Added

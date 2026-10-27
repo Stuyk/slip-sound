@@ -3,6 +3,8 @@ import type { SoundRow } from '../../../preload/index'
 import { Button } from './ui/Button'
 import { IconButton } from './ui/IconButton'
 import { showToast } from './ui/Toast'
+import { formatTime } from '../waveformDraw'
+import { startRenderedDrag } from '../dragExports'
 import {
   PlayIcon,
   PauseIcon,
@@ -22,19 +24,6 @@ export interface WaveformApi {
   togglePlay: () => void
   play: () => void
   pause: () => void
-}
-
-function formatTime(s: number): string {
-  if (!isFinite(s) || s < 0) return '0:00.00'
-  const m = Math.floor(s / 60)
-  const sec = Math.floor(s % 60)
-  const ms = Math.floor((s % 1) * 100)
-  return `${m}:${sec.toString().padStart(2, '0')}.${ms.toString().padStart(2, '0')}`
-}
-
-function formatRegionSec(s: number): string {
-  if (!isFinite(s)) return '0.00s'
-  return `${s.toFixed(2)}s`
 }
 
 const DRAG_THRESHOLD_PX = 4
@@ -80,61 +69,33 @@ export default function WaveformPreview(props: {
   let renderToken = 0
   let renderTimer: ReturnType<typeof setTimeout> | undefined
 
-  let audioCtx: AudioContext | undefined
   let currentToken = 0
   let rafId: number | undefined
   let loopTimer: ReturnType<typeof setTimeout> | undefined
   let lastLoadedPath = ''
   let loadDebounceTimer: ReturnType<typeof setTimeout> | undefined
-  let currentAbortController: AbortController | null = null
+  const [loadError, setLoadError] = createSignal<string | null>(null)
 
-  function getCtx(): AudioContext {
-    if (!audioCtx) audioCtx = new AudioContext()
-    return audioCtx
-  }
-
+  // The overview comes from the main process (streamed through ffmpeg and cached),
+  // so long files never have to be downloaded and decoded here.
   async function loadWaveform(row: SoundRow): Promise<void> {
     const token = ++currentToken
-    if (currentAbortController) {
-      currentAbortController.abort()
-    }
-    const abortCtrl = new AbortController()
-    currentAbortController = abortCtrl
-
     setLoading(true)
+    setLoadError(null)
     setPeaks(null)
     try {
-      const res = await fetch(window.api.audioUrl(row.path), { signal: abortCtrl.signal })
-      const arrayBuffer = await res.arrayBuffer()
+      const res = await window.api.getWaveformPeaks(row.path)
       if (token !== currentToken) return
-      const audioBuffer = await getCtx().decodeAudioData(arrayBuffer)
+      if (res.duration && res.duration > 0) setDuration(res.duration)
+      setPeaks(res.peaks)
+    } catch (err) {
       if (token !== currentToken) return
-      if (audioBuffer && isFinite(audioBuffer.duration) && audioBuffer.duration > 0) {
-        setDuration(audioBuffer.duration)
-      }
-      setPeaks(computePeaks(audioBuffer, 500))
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return
-      if (token === currentToken) setPeaks(null)
+      const msg = err instanceof Error ? err.message : String(err)
+      // A newer selection cancelled this one; nothing to report.
+      if (!msg.includes('cancelled')) setLoadError(msg.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''))
     } finally {
       if (token === currentToken) setLoading(false)
     }
-  }
-
-  function computePeaks(buffer: AudioBuffer, bucketCount: number): Float32Array {
-    const data = buffer.getChannelData(0)
-    const bucketSize = Math.max(1, Math.floor(data.length / bucketCount))
-    const peaks = new Float32Array(bucketCount)
-    for (let i = 0; i < bucketCount; i++) {
-      const start = i * bucketSize
-      let max = 0
-      for (let j = start; j < start + bucketSize && j < data.length; j++) {
-        const v = Math.abs(data[j])
-        if (v > max) max = v
-      }
-      peaks[i] = max
-    }
-    return peaks
   }
 
   function resizeCanvas(): void {
@@ -268,10 +229,8 @@ export default function WaveformPreview(props: {
     if (!row) {
       lastLoadedPath = ''
       clearTimeout(loadDebounceTimer)
-      if (currentAbortController) {
-        currentAbortController.abort()
-        currentAbortController = null
-      }
+      currentToken++
+      setLoadError(null)
       setPeaks(null)
       setDuration(0)
       setSelStart(null)
@@ -308,10 +267,6 @@ export default function WaveformPreview(props: {
     }
 
     clearTimeout(loadDebounceTimer)
-    if (currentAbortController) {
-      currentAbortController.abort()
-      currentAbortController = null
-    }
 
     loadDebounceTimer = setTimeout(() => {
       loadWaveform(row)
@@ -373,7 +328,7 @@ export default function WaveformPreview(props: {
   function onRegionDragStart(e: DragEvent): void {
     e.preventDefault()
     const r = render()
-    if (r && !rendering()) window.api.startDragRendered([r])
+    if (r && !rendering()) startRenderedDrag([r])
   }
 
   // Starts playback, snapping into the selected region first if the playhead
@@ -597,11 +552,6 @@ export default function WaveformPreview(props: {
     clearTimeout(loopTimer)
     clearTimeout(loadDebounceTimer)
     clearTimeout(renderTimer)
-    if (currentAbortController) {
-      currentAbortController.abort()
-      currentAbortController = null
-    }
-    audioCtx?.close()
     resizeObserver?.disconnect()
     window.removeEventListener('mousemove', onPointerMove)
     window.removeEventListener('mouseup', onPointerUp)
@@ -642,14 +592,14 @@ export default function WaveformPreview(props: {
                   rendering()
                     ? 'Preparing region for drag…'
                     : render()
-                      ? 'Drag this region into another app (e.g. Resolve, Audacity)'
+                      ? 'Drag this region into another app (e.g. Resolve, Audacity). A copy is kept in the Drag Exports folder.'
                       : 'Region unavailable to drag'
                 }
               >
                 {rendering() ? <RefreshCwIcon size={12} class="animate-spin" /> : <GripVerticalIcon size={12} />}
               </span>
               <span id="waveform-region-time-bounds">
-                {formatRegionSec(region()!.start)} – {formatRegionSec(region()!.end)}
+                {formatTime(region()!.start)} – {formatTime(region()!.end)}
               </span>
               <button
                 id="waveform-region-clear-btn"
@@ -699,6 +649,11 @@ export default function WaveformPreview(props: {
       {/* Waveform Canvas Area - Extra breathing room & height */}
       <div id="waveform-canvas-container" class="relative w-full h-32 bg-[#1e2022] cursor-crosshair overflow-hidden px-2 py-1.5" ref={canvasWrap} onMouseDown={onPointerDown}>
         <canvas id="waveform-canvas" ref={canvas} class="w-full h-full block" />
+        {loadError() && !loading() && (
+          <div id="waveform-error-overlay" class="absolute inset-0 flex items-center justify-center px-6 text-center text-md text-red-300 bg-[#1e2022]/80">
+            Couldn't read this file: {loadError()}
+          </div>
+        )}
         {loading() && (
           <div id="waveform-loading-overlay" class="absolute inset-0 flex items-center justify-center gap-2 bg-[#1e2022]/80 backdrop-blur-xs text-md text-[#8b949e]">
             <RefreshCwIcon size={16} class="animate-spin text-[#007acc]" />

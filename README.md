@@ -37,7 +37,10 @@ Every folder you open gets its own SQLite database, saved right at that folder's
 
 ## What It Does
 
-- **Search & Auto-Categorize:** Filter by query, channels, duration, favorites, or category sidebar. Files get auto-tagged on index.
+- **Search & Auto-Categorize:** Every word matches on its own, in any order, across file names, categories and folder names ("door squeak" finds `Squeaky_Door_02.wav`). Filter by channels, duration, favorites, or the sidebar. Files get auto-tagged on index.
+- **Right-Click Menu:** Every action for a sound (or the whole selection) in one place: play, effects, slice, loop, export, reveal, show in folders, copy path, favorite, categorize.
+- **Undo / Redo:** `Ctrl+Z` takes back category changes and favorites, even bulk ones.
+- **Folders View:** Prefer your own folder structure? Switch the sidebar to **Folders** to browse the real hierarchy, expand and collapse subfolders, and search inside the folder you pick.
 - **Manual Category Overrides:** Click a category to reassign or clear it. Sticks through reindexes.
 - **Sortable Table:** Click any column header to sort.
 - **Favorites:** Star sounds, filter to favorites only.
@@ -61,6 +64,9 @@ Every folder you open gets its own SQLite database, saved right at that folder's
 </p>
 <p align="center">
   <img src="screenshots/04-category-browsing.png" alt="Browsing by category" width="800" />
+</p>
+<p align="center">
+  <img src="screenshots/10-folders.png" alt="Folders view: the library's folder tree in the sidebar, with library/Voice selected and the list showing only its sounds" width="800" />
 </p>
 <p align="center">
   <img src="screenshots/05-batch-exporter.png" alt="Batch exporter" width="800" />
@@ -89,8 +95,10 @@ Point it at a sample folder (`Ctrl+O`). It indexes automatically and caches loca
 | `Ctrl` + `A` | Select all sounds matching the current filters |
 | `Shift` + `Click` | Select every sound between the last click and this one |
 | `Ctrl` + `F` | Focus search |
+| `Ctrl` + `Z` / `Ctrl` + `Shift` + `Z` | Undo / redo category and favorite changes |
+| `Right-click` | All actions for the sound or selection |
 | `Ctrl` + `O` | Open folder |
-| `Ctrl` + `B` | Toggle category sidebar |
+| `Ctrl` + `B` | Toggle the sidebar (Categories / Folders) |
 | `Ctrl` + `E` | Export selection / region |
 | `Ctrl` + `K` | Open the Slicer for the selected sound |
 | `Ctrl` + `L` | Open the Seamless Loop tool for the selected sound |
@@ -115,7 +123,7 @@ Got one file with a dozen hits, footsteps, or one-shots in it? Select it and hit
 - **Auto-Detect** finds every sound between silences. Tune the threshold (dB) and minimum gap (ms) if it splits too much or too little.
 - Name each slice (or keep the default `<file>_01`, `<file>_02`, …), fine-tune start/end by typing exact times, then **Export** them all at once through the normal export dialog.
 
-Slices stick around per file until you close the app.
+Slices stick around per file until you close the app. **Effects…** sends every slice to the Effects window, so you can process them all at once and drag or export them with their slice names.
 
 | Key | Action |
 | --- | --- |
@@ -138,7 +146,7 @@ Turn any stretch of audio into a loop that repeats without a click. Select a sou
 
 Pick the loop region, then set the crossfade. The last part of the region (the tail) gets blended over the start (the head), so the end flows straight back into the beginning. The loop comes out shorter by the crossfade length. **Equal Power** works best for ambiences and noise, **Linear** for tonal or rhythmic stuff.
 
-The result view shows the loop played twice with the loop point marked, so you can see the seam. Hit `B` while it plays to flip between the seamless version and the raw region and hear the difference. Export goes through the normal export dialog, so any format, sample rate, or bit depth works.
+The result view shows the loop played twice with the loop point marked, so you can see the seam. Hit `B` while it plays to flip between the seamless version and the raw region and hear the difference. Export goes through the normal export dialog, so any format, sample rate, or bit depth works. **Effects…** opens the finished loop in the Effects window (fades are skipped so it stays seamless).
 
 | Key | Action |
 | --- | --- |
@@ -161,10 +169,11 @@ Quick fixes before a sound goes into your timeline, with no round trip through a
 - **Presets:** built-ins like *Reverse Swell*, *Pitch Down Monster* and *Streaming −14 LUFS*, plus your own. Save, update, and import/export them as JSON to share with your team.
 - **In the Export dialog,** the **Effects** picker can apply any preset to a batch, Slicer slices, or a Seamless Loop (minus fades, which would break the loop). It's set to None unless you came from the Effects window, so nothing gets processed by surprise.
 - **Names:** processed files get a suffix so you can tell them apart: `door_slam__rev_p-3_fo200.wav`.
+- **Keep going:** **Slice result…** and **Loop result…** open the processed sound in the Slicer or Seamless Loop tool.
 
 ### Drag Exports
 
-Anything you drag out that isn't the original file (a region, an Effects result) is saved to **`~/Slip Sound/Drag Exports`**, not a temp folder, so DaVinci Resolve, Premiere and friends never show it as offline. The **Drag Exports** button in the status bar lists recent drags and lets you open or change the folder, pick 16/24/32-bit WAV (24-bit by default), or clear it (to the trash).
+Anything you drag out that isn't the original file (a region, an Effects result) is saved to **`~/Slip Sound/Drag Exports`**, not a temp folder, so DaVinci Resolve, Premiere and friends never show it as offline. The **Drag Exports** button in the status bar lists recent drags and lets you open or change the folder, pick 16/24/32-bit WAV (24-bit by default), or clear it (to the trash). The same settings are in **Settings**, and the first drag of each session tells you where the copy went.
 
 ## MCP Server
 
@@ -176,7 +185,7 @@ Bound to `127.0.0.1` only, with a random bearer token minted per launch and Orig
 
 | Tool | What it does |
 | --- | --- |
-| `search_sounds` | Filter by filename, category, subcategory, channels, duration, favorite status |
+| `search_sounds` | Filter by filename, category, subcategory, folder, channels, duration, favorite status |
 | `list_uncategorized_sounds` | Page through sounds still tagged "Uncategorized," for an agent to work through and tag |
 | `get_sound` | Full metadata for one file by path |
 | `get_categories` | Category/subcategory facet counts |

@@ -227,6 +227,22 @@ app.on('browser-window-created', (_, win) => {
       await capture(path.join(screenshotsDir, '08-seamless-loop.png'));
       await captureElement('#loop-modal', path.join(docsShotsDir, '08-seamless-loop.png'));
 
+      // --- 10: Folders view (last, so the Categories scenes above aren't affected) ---
+      await key('Escape');
+      await delay(400);
+      await search('');
+      await js(`document.querySelector('#sidebar-mode-item-folders').click()`);
+      await delay(800);
+      await js(`document.querySelector('#category-sidebar-toggle-all-btn').click()`);
+      await delay(300);
+      await js(`[...document.querySelectorAll('#folder-tree [data-folder]')].find((r) => r.textContent.startsWith('Voice'))?.click()`);
+      await delay(1500);
+      await scrollListTop();
+      await clickRowIndex(2);
+      await delay(1000);
+      await capture(path.join(screenshotsDir, '10-folders.png'));
+      await js(`document.querySelector('#sidebar-mode-item-categories').click()`);
+
       console.log('All screenshots captured.');
     } catch (err) {
       console.error('Error during capture:', err);

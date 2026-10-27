@@ -3,6 +3,7 @@ import type { ExportFormat, BitDepth, NamingMode, ExportBatchFileResult, Process
 import { describeEffects, suffixFor, withoutFades } from '../../../shared/processing';
 import { presetSettings, presets } from '../processingStore';
 import { Modal } from './ui/Modal';
+import { formatTime } from '../waveformDraw';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
 import { ProgressBar } from './ui/ProgressBar';
@@ -136,7 +137,7 @@ export default function ExportModal(props: {
     const f = props.files[0];
     if (f.start !== undefined && f.end !== undefined) {
       const dur = Math.max(0, f.end - f.start);
-      return `${f.start.toFixed(2)}s – ${f.end.toFixed(2)}s (${dur.toFixed(2)}s duration)`;
+      return `${formatTime(f.start)} – ${formatTime(f.end)} (${formatTime(dur)} long)`;
     }
     return null;
   };
