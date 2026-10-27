@@ -1,6 +1,7 @@
 import { Show } from 'solid-js';
 import type { SoundRow } from '../../../../preload/index';
 import { Badge } from '../ui/Badge';
+import { DragExportsMenu } from './DragExportsMenu';
 import {
   DatabaseIcon,
   InfinityIcon,
@@ -20,6 +21,7 @@ export interface WorkstationStatusBarProps {
   selectedRow: SoundRow | null;
   formatSize: (bytes?: number) => string;
   onOpenHelp: () => void;
+  // Background renders for a processed drag-out, while in progress.
 }
 
 export function WorkstationStatusBar(props: WorkstationStatusBarProps) {
@@ -75,6 +77,8 @@ export function WorkstationStatusBar(props: WorkstationStatusBarProps) {
 
       {/* Right Section: Toggles & Sound Specs */}
       <div id="status-bar-right-section" class="flex items-center gap-2">
+        <DragExportsMenu />
+
         <button
           id="status-bar-infinite-scroll-btn"
           type="button"

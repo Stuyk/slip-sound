@@ -7,6 +7,7 @@ import ExportModal, { ExportFile } from './components/ExportModal'
 import CategoryModal from './components/CategoryModal'
 import SlicerModal from './components/SlicerModal'
 import SeamlessLoopModal from './components/SeamlessLoopModal'
+import EffectsModal from './components/EffectsModal'
 import { CategorySidebar } from './components/CategorySidebar'
 import { fetchAllMatchingSounds } from './selection'
 import { ThemeProvider } from './themes/context'
@@ -16,6 +17,8 @@ import { WorkstationStatusBar } from './components/workstation/WorkstationStatus
 import { WelcomeScreen } from './components/workstation/WelcomeScreen'
 import { ScanningOverlay } from './components/workstation/ScanningOverlay'
 import { ToastContainer } from './components/ui/Toast'
+import { initProcessing } from './processingStore'
+import type { ProcessingSettings } from '../../shared/processing'
 import appIcon from '../assets/app-icon.png'
 
 function formatDuration(d?: number | null): string {
@@ -59,6 +62,10 @@ function MainWorkstation() {
   const [loadingMore, setLoadingMore] = createSignal(false)
   const [exportModalOpen, setExportModalOpen] = createSignal(false)
   const [exportFiles, setExportFiles] = createSignal<ExportFile[]>([])
+  // Effects chosen in the Effects window for this export (pre-selected in the dialog).
+  const [exportProcessing, setExportProcessing] = createSignal<ProcessingSettings | undefined>()
+  const [effectsRows, setEffectsRows] = createSignal<SoundRow[]>([])
+  const [effectsSeed, setEffectsSeed] = createSignal<{ start: number; end: number } | null>(null)
   const [slicerRow, setSlicerRow] = createSignal<SoundRow | null>(null)
   const [slicerSeed, setSlicerSeed] = createSignal<{ start: number; end: number } | null>(null)
   const [loopRow, setLoopRow] = createSignal<SoundRow | null>(null)
@@ -168,6 +175,7 @@ function MainWorkstation() {
 
     window.addEventListener('keydown', onKeyDown)
     onCleanup(() => window.removeEventListener('keydown', onKeyDown))
+    void initProcessing()
   })
 
   async function refreshRecent(): Promise<void> {
@@ -324,11 +332,11 @@ function MainWorkstation() {
   function onRowDragStart(index: number, e: DragEvent): void {
     const row = results()[index]
     if (!row) return
+    e.preventDefault()
     const selectedPaths = multiSelected().has(row.path)
       ? Array.from(multiSelected().keys())
       : [row.path]
     window.api.startDrag(selectedPaths)
-    e.preventDefault()
   }
 
   async function toggleRowFavorite(row: SoundRow, e: MouseEvent): Promise<void> {
@@ -398,7 +406,14 @@ function MainWorkstation() {
     }
   }
 
+  function openExport(files: ExportFile[], processing?: ProcessingSettings): void {
+    setExportFiles(files)
+    setExportProcessing(processing)
+    setExportModalOpen(true)
+  }
+
   function openExportForRow(row: SoundRow, region: { start: number; end: number } | null): void {
+    setExportProcessing(undefined)
     setExportFiles([
       {
         sourcePath: row.path,
@@ -420,8 +435,7 @@ function MainWorkstation() {
         })
       }
       if (files.length > 0) {
-        setExportFiles(files)
-        setExportModalOpen(true)
+        openExport(files)
         return
       }
     }
@@ -446,6 +460,15 @@ function MainWorkstation() {
     waveApi?.pause()
     setLoopSeed(region ?? null)
     setLoopRow(row)
+  }
+
+  // Effects work on the multi-selection, or the selected sound (and its region).
+  function openEffects(region?: { start: number; end: number } | null): void {
+    const rows = multiSelected().size > 0 ? Array.from(multiSelected().values()) : selectedRow() ? [selectedRow()!] : []
+    if (rows.length === 0) return
+    waveApi?.pause()
+    setEffectsSeed(rows.length === 1 ? (region ?? null) : null)
+    setEffectsRows(rows)
   }
 
   function openCategoryModalForRow(row: SoundRow): void {
@@ -620,7 +643,7 @@ function MainWorkstation() {
       return
     }
 
-    if (exportModalOpen() || categoryModalRows().length > 0 || showSettings() || slicerRow() || loopRow()) {
+    if (exportModalOpen() || categoryModalRows().length > 0 || showSettings() || slicerRow() || loopRow() || effectsRows().length > 0) {
       return
     }
 
@@ -639,6 +662,12 @@ function MainWorkstation() {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault()
       openSlicer()
+      return
+    }
+
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') {
+      e.preventDefault()
+      openEffects()
       return
     }
 
@@ -760,6 +789,8 @@ function MainWorkstation() {
         onOpenExport={openExportForSelection}
         onOpenSlicer={() => openSlicer()}
         onOpenLoopTool={() => openLoopTool()}
+        onOpenEffects={() => openEffects()}
+        onOpenDragFolder={() => void window.api.openDragFolder()}
         canSlice={selectedRow() !== null}
         onOpenSettings={() => setShowSettings(true)}
         onSelectAll={selectAllFiltered}
@@ -871,6 +902,7 @@ function MainWorkstation() {
           }}
           onSliceRequest={openSlicer}
           onLoopRequest={openLoopTool}
+          onEffectsRequest={openEffects}
         />
       </Show>
 
@@ -902,10 +934,7 @@ function MainWorkstation() {
         seedRegion={slicerSeed()}
         blocked={exportModalOpen()}
         onClose={() => setSlicerRow(null)}
-        onExport={(files) => {
-          setExportFiles(files)
-          setExportModalOpen(true)
-        }}
+        onExport={(files) => openExport(files)}
       />
 
       {/* Seamless Loop: crossfade a region's tail into its head, export the loop. */}
@@ -914,14 +943,25 @@ function MainWorkstation() {
         seedRegion={loopSeed()}
         blocked={exportModalOpen()}
         onClose={() => setLoopRow(null)}
-        onExport={(files) => {
-          setExportFiles(files)
-          setExportModalOpen(true)
-        }}
+        onExport={(files) => openExport(files.map((f) => ({ ...f, excludeFades: true })))}
+      />
+
+      {/* Effects: preview and render reverse/pitch/speed/fades/level to new files. */}
+      <EffectsModal
+        rows={effectsRows()}
+        seedRegion={effectsSeed()}
+        blocked={exportModalOpen()}
+        onClose={() => setEffectsRows([])}
+        onExport={(files, processing) => openExport(files, processing)}
       />
 
       {/* Shared Export Wizard Modal */}
-      <ExportModal open={exportModalOpen()} files={exportFiles()} onClose={() => setExportModalOpen(false)} />
+      <ExportModal
+        open={exportModalOpen()}
+        files={exportFiles()}
+        processing={exportProcessing()}
+        onClose={() => setExportModalOpen(false)}
+      />
 
       {/* Category Assignment Modal */}
       <CategoryModal

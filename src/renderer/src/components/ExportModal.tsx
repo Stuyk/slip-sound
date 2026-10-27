@@ -1,5 +1,7 @@
 import { createSignal, createEffect, onCleanup, For, Show } from 'solid-js';
-import type { ExportFormat, BitDepth, NamingMode, ExportBatchFileResult } from '../../../preload/index';
+import type { ExportFormat, BitDepth, NamingMode, ExportBatchFileResult, ProcessingSettings } from '../../../preload/index';
+import { describeEffects, suffixFor, withoutFades } from '../../../shared/processing';
+import { presetSettings, presets } from '../processingStore';
 import { Modal } from './ui/Modal';
 import { Button } from './ui/Button';
 import { Badge } from './ui/Badge';
@@ -43,6 +45,8 @@ export interface ExportFile {
   end?: number;
   // Output stem override (slices); used by "Keep Original" naming.
   name?: string;
+  // Seamless loop output: fades would break the loop join, so they're skipped.
+  excludeFades?: boolean;
 }
 
 const PREF_KEY = 'slipsound:export-defaults';
@@ -80,7 +84,15 @@ function saveExportDefaults(defaults: ExportDefaults): void {
   }
 }
 
-export default function ExportModal(props: { open: boolean; files: ExportFile[]; onClose: () => void }) {
+export default function ExportModal(props: {
+  open: boolean;
+  files: ExportFile[];
+  // Effects set up in the Effects window; pre-selected, but the user can change them.
+  processing?: ProcessingSettings;
+  onClose: () => void;
+}) {
+  // 'none', 'window' (the Effects window's settings) or a preset id.
+  const [effectsChoice, setEffectsChoice] = createSignal('none');
   const initialDefaults = loadExportDefaults();
   const [format, setFormat] = createSignal<ExportFormat>(initialDefaults.format);
   const [sampleRate, setSampleRate] = createSignal(initialDefaults.sampleRate);
@@ -106,6 +118,7 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
 
   createEffect(() => {
     if (props.open) {
+      setEffectsChoice(props.processing ? 'window' : 'none');
       setExporting(false);
       setProgress(null);
       setResults(null);
@@ -130,17 +143,44 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
 
   const effectiveBaseName = (): string => baseName().trim() || 'sound';
 
+  const chosenProcessing = (): ProcessingSettings | undefined => {
+    const c = effectsChoice();
+    if (c === 'none') return undefined;
+    if (c === 'window') return props.processing;
+    const p = presets().find((x) => x.id === c);
+    return p ? presetSettings(p) : undefined;
+  };
+  const loopExport = (): boolean => props.files.some((f) => f.excludeFades);
+  const effectsText = (): string => {
+    const p = chosenProcessing();
+    if (!p) return 'Files are exported as they are.';
+    const parts = describeEffects(loopExport() ? withoutFades(p) : p);
+    return parts.join(' · ') + (loopExport() && p.fadeIn + p.fadeOut > 0 ? ' (fades skipped for loops)' : '');
+  };
+  const effectsOptions = (): { value: string; label: string }[] => [
+    { value: 'none', label: 'None' },
+    ...(props.processing ? [{ value: 'window', label: 'From the Effects window' }] : []),
+    ...presets().map((p) => ({ value: p.id, label: `Preset: ${p.name}` })),
+  ];
+  const nameSuffix = (file: ExportFile): string => {
+    const p = chosenProcessing();
+    if (!p) return '';
+    const tag = suffixFor(file.excludeFades ? withoutFades(p) : p);
+    return tag ? `__${tag}` : '';
+  };
+
   function previewName(index: number): string {
     const file = props.files[index];
     if (!file) return '';
     const stem = file.name ?? file.filename.replace(/\.[^.]+$/, '');
     const mode = naming();
-    if (mode === 'original') return `${stem}.${format()}`;
+    const suffix = nameSuffix(file);
+    if (mode === 'original') return `${stem}${suffix}.${format()}`;
     if (mode === 'numeric') {
       const width = props.files.length > 99 ? String(props.files.length).length : 2;
-      return `${effectiveBaseName()}_${String(index + 1).padStart(width, '0')}.${format()}`;
+      return `${effectiveBaseName()}_${String(index + 1).padStart(width, '0')}${suffix}.${format()}`;
     }
-    return `${effectiveBaseName()}_${toAlpha(index)}.${format()}`;
+    return `${effectiveBaseName()}_${toAlpha(index)}${suffix}.${format()}`;
   }
 
   function toAlpha(index: number): string {
@@ -184,7 +224,14 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
     setProgress(null);
     try {
       const result = await window.api.exportBatch({
-        files: props.files.map((f) => ({ sourcePath: f.sourcePath, start: f.start, end: f.end, name: f.name })),
+        files: props.files.map((f) => ({
+          sourcePath: f.sourcePath,
+          start: f.start,
+          end: f.end,
+          name: f.name,
+          excludeFades: f.excludeFades,
+        })),
+        processing: chosenProcessing(),
         format: format(),
         sampleRate: sampleRate(),
         bitDepth: format() === 'wav' ? bitDepth() : undefined,
@@ -339,6 +386,32 @@ export default function ExportModal(props: { open: boolean; files: ExportFile[];
         }
       >
         <div class="flex flex-col gap-5 text-md">
+          {/* Effects: none by default; pre-selected when coming from the Effects window */}
+          <div
+            id="export-effects"
+            class="flex items-center gap-3 px-3.5 py-2.5 border rounded-[3px] text-md"
+            classList={{
+              'bg-amber-500/10 border-amber-500/30': !!chosenProcessing(),
+              'border-[var(--border-color)]': !chosenProcessing(),
+            }}
+          >
+            <span class="font-medium text-[var(--text-main)] shrink-0">Effects</span>
+            <Select
+              id="export-effects-select"
+              class="w-64 shrink-0"
+              value={effectsChoice()}
+              options={effectsOptions()}
+              onChange={setEffectsChoice}
+            />
+            <span
+              class="truncate"
+              classList={{ 'text-amber-200': !!chosenProcessing(), 'text-[var(--text-muted)]': !chosenProcessing() }}
+              title={effectsText()}
+            >
+              {effectsText()}
+            </span>
+          </div>
+
           {/* Region Export Callout (if active) */}
           <Show when={hasRegion()}>
             <div id="export-region-banner" class="flex items-center justify-between px-3.5 py-2.5 bg-amber-500/10 border border-amber-500/30 rounded-[3px] text-md">

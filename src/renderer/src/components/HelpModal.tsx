@@ -80,6 +80,10 @@ export default function HelpModal(props: { isOpen: boolean; onClose: () => void 
               <div class="flex gap-1"><Kbd>Ctrl</Kbd>+<Kbd>L</Kbd></div>
             </div>
             <div class="flex items-center justify-between py-0.5 border-b border-[var(--border-color)]/50">
+              <span class="text-[var(--text-main)]">Process Panel (reverse, pitch, fades…)</span>
+              <div class="flex gap-1"><Kbd>Ctrl</Kbd>+<Kbd>P</Kbd></div>
+            </div>
+            <div class="flex items-center justify-between py-0.5 border-b border-[var(--border-color)]/50">
               <span class="text-[var(--text-main)]">Toggle Categories Sidebar</span>
               <div class="flex gap-1"><Kbd>Ctrl</Kbd>+<Kbd>B</Kbd></div>
             </div>

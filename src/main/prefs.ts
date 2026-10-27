@@ -6,6 +6,8 @@ interface Prefs {
   lastExportFolder?: string
   mcpEnabled?: boolean
   autoCategorizationEnabled?: boolean
+  dragExportFolder?: string
+  dragBitDepth?: 16 | 24 | 32
 }
 
 function storePath(): string {
@@ -57,5 +59,28 @@ export function getAutoCategorizationEnabled(): boolean {
 export function setAutoCategorizationEnabled(enabled: boolean): void {
   const prefs = load()
   prefs.autoCategorizationEnabled = enabled
+  save(prefs)
+}
+
+// Where dragged-out renders are kept. Unset = the per-user default folder.
+export function getDragExportFolderPref(): string | undefined {
+  return load().dragExportFolder
+}
+
+export function setDragExportFolderPref(folder: string | undefined): void {
+  const prefs = load()
+  prefs.dragExportFolder = folder
+  save(prefs)
+}
+
+// 24-bit by default so dragging a region out never downgrades a 24-bit source.
+export function getDragBitDepth(): 16 | 24 | 32 {
+  const v = load().dragBitDepth
+  return v === 16 || v === 32 ? v : 24
+}
+
+export function setDragBitDepth(bits: 16 | 24 | 32): void {
+  const prefs = load()
+  prefs.dragBitDepth = bits
   save(prefs)
 }

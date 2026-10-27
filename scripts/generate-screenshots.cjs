@@ -50,11 +50,13 @@ app.on('browser-window-created', (_, win) => {
         return { x: b.x, y: b.y, width: b.width, height: b.height };
       })()`);
       const m = 12;
+      const x = Math.max(0, Math.floor(r.x - m));
+      const y = Math.max(0, Math.floor(r.y - m));
       const rect = {
-        x: Math.max(0, Math.floor(r.x - m)),
-        y: Math.max(0, Math.floor(r.y - m)),
-        width: Math.ceil(r.width + m * 2),
-        height: Math.ceil(r.height + m * 2)
+        x,
+        y,
+        width: Math.min(WIDTH - x, Math.ceil(r.width + m * 2)),
+        height: Math.min(HEIGHT - y, Math.ceil(r.height + m * 2))
       };
       fs.writeFileSync(file, (await win.webContents.capturePage(rect)).toPNG());
       console.log('Captured', path.relative(rootDir, file), `${rect.width}x${rect.height}`);
@@ -170,6 +172,23 @@ app.on('browser-window-created', (_, win) => {
       await delay(1000);
       await capture(path.join(screenshotsDir, '06-shortcuts-guide.png'));
       await key('?');
+      await delay(400);
+
+      // --- 09: Effects window (Reverse Swell + peak normalize on a bell decay) ---
+      await search('bell');
+      await clickRow('bell 10\\.wav');
+      await key('p', { ctrlKey: true });
+      await delay(1500);
+      await js(`(() => {
+        [...document.querySelectorAll('#effects-presets button')].find((b) => b.textContent.startsWith('Reverse Swell')).click();
+      })()`);
+      await delay(300);
+      await js(`document.querySelector('#effects-level-mode-item-peak').click()`);
+      await delay(3000);
+      await capture(path.join(screenshotsDir, '09-processing.png'));
+      await captureElement('#effects-modal', path.join(docsShotsDir, '09-processing.png'));
+      await js(`document.querySelector('#effects-reset-all')?.click()`);
+      await key('Escape');
       await delay(400);
 
       // --- 07: Slicer, auto-detected footsteps ---

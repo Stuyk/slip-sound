@@ -9,7 +9,7 @@ export interface SwitchProps {
   class?: string;
 }
 
-export function Switch(rawProps: SwitchProps) {
+export function Switch(rawProps: SwitchProps): JSX.Element {
   const props = mergeProps({ checked: false, disabled: false }, rawProps);
 
   return (
@@ -26,15 +26,13 @@ export function Switch(rawProps: SwitchProps) {
         role="switch"
         aria-checked={props.checked}
         onClick={() => props.onChange?.(!props.checked)}
-        class={`relative inline-flex h-4 w-7 shrink-0 items-center rounded-full border border-[var(--border-color)] transition-colors focus:outline-none ${
-          props.checked ? 'bg-[var(--accent-color)]' : 'bg-[var(--bg-input)]'
+        class={`inline-flex h-4 w-7 shrink-0 items-center p-[2px] rounded-full border transition-colors focus:outline-none ${
+          props.checked
+            ? 'justify-end bg-[var(--accent-color)] border-[var(--accent-color)]'
+            : 'justify-start bg-[var(--bg-input)] border-[#4a4e55] hover:border-[#8b949e]'
         }`}
       >
-        <span
-          class={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
-            props.checked ? 'translate-x-3.5' : 'translate-x-0.5'
-          }`}
-        />
+        <span class={`block h-2.5 w-2.5 rounded-full ${props.checked ? 'bg-white' : 'bg-[#8b949e]'}`} />
       </button>
     </label>
   );

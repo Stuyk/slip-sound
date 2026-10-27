@@ -16,6 +16,8 @@ import {
   Infinity as InfinityIcon,
   Zap,
   Clock,
+  SlidersHorizontal,
+  FolderOutput,
   Scissors,
   Repeat,
 } from 'lucide-solid';
@@ -64,6 +66,8 @@ export interface WorkstationMenuBarProps {
   onToggleSidebar: () => void;
   onToggleInfiniteScroll: () => void;
   onToggleAutoPlay: () => void;
+  onOpenEffects: () => void;
+  onOpenDragFolder: () => void;
   onOpenHelp: () => void;
 }
 
@@ -200,7 +204,33 @@ export function WorkstationMenuBar(props: WorkstationMenuBarProps) {
                 <span class="text-md font-mono opacity-60">Ctrl+L</span>
               </button>
 
+              <button
+                id="menu-item-effects"
+                type="button"
+                disabled={!props.canSlice}
+                class="px-3 py-1.5 flex items-center justify-between hover:bg-[#007acc] hover:text-white text-[#f0f3f6] text-left disabled:opacity-40 disabled:pointer-events-none cursor-pointer transition-colors"
+                onClick={() => runAction(props.onOpenEffects)}
+              >
+                <div class="flex items-center gap-2">
+                  <SlidersHorizontal size={13} />
+                  <span>Effects…</span>
+                </div>
+                <span class="text-md font-mono opacity-60">Ctrl+P</span>
+              </button>
+
               <div class="h-px bg-[#1c1d1f] my-1" />
+
+              <button
+                id="menu-item-drag-folder"
+                type="button"
+                class="px-3 py-1.5 flex items-center justify-between hover:bg-[#007acc] hover:text-white text-[#f0f3f6] text-left cursor-pointer transition-colors"
+                onClick={() => runAction(props.onOpenDragFolder)}
+              >
+                <div class="flex items-center gap-2">
+                  <FolderOutput size={13} />
+                  <span>Open Drag Exports Folder</span>
+                </div>
+              </button>
 
               <button
                 id="menu-item-settings"
@@ -398,6 +428,7 @@ export function WorkstationMenuBar(props: WorkstationMenuBarProps) {
                   {props.sidebarOpen && <Check size={13} />}
                 </div>
               </button>
+
 
               <button
                 id="menu-item-toggle-infinite-scroll"

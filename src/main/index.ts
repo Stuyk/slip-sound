@@ -31,7 +31,35 @@ import {
   getAutoCategorizationEnabled,
   setAutoCategorizationEnabled
 } from './prefs'
-import { exportRegion, generateExportFilename, sanitizeStem, ExportFormat, BitDepth, NamingMode } from './export'
+import {
+  exportRegion,
+  generateExportFilename,
+  getCapabilities,
+  measureLoudness,
+  sanitizeStem,
+  ExportFormat,
+  BitDepth,
+  NamingMode
+} from './export'
+import {
+  type RenderRequest,
+  clearDragFolder,
+  dragFolder,
+  dragFolderInfo,
+  renderProcessed,
+  stageForDrag,
+  trimRenderCache
+} from './renders'
+import { deletePreset, exportPresets, importPresets, listPresets, savePreset } from './presets'
+import { setDragBitDepth, setDragExportFolderPref } from './prefs'
+import {
+  type ProcessingEffects,
+  type ProcessingSettings,
+  decideGain,
+  isIdentity,
+  suffixFor,
+  withoutFades
+} from '../shared/processing'
 import { startMcpServer, McpServerHandle, McpDeps } from './mcp/server'
 import { writeMcpConnectionInfo, clearMcpConnectionInfo } from './mcp/connectionInfo'
 
@@ -338,6 +366,8 @@ app.whenReady().then(() => {
     end?: number
     // Output stem override (e.g. a named slice); used by "keep original" naming.
     name?: string
+    // Seamless loop output: skip fades, they would break the loop join.
+    excludeFades?: boolean
   }
   interface ExportBatchParams {
     files: ExportBatchFile[]
@@ -347,6 +377,7 @@ app.whenReady().then(() => {
     oggQuality?: number
     naming: NamingMode
     baseName: string
+    processing?: ProcessingSettings
   }
   interface ExportBatchFileResult {
     sourcePath: string
@@ -357,7 +388,7 @@ app.whenReady().then(() => {
 
   ipcMain.handle('sounds:export-batch', async (event, params: ExportBatchParams) => {
     if (!mainWindow) return { canceled: true, results: [] }
-    const { files, format, sampleRate, bitDepth, oggQuality, naming, baseName } = params
+    const { files, format, sampleRate, bitDepth, oggQuality, naming, baseName, processing } = params
 
     const lastFolder = getLastExportFolder()
     const dirResult = await dialog.showOpenDialog(mainWindow, {
@@ -375,7 +406,11 @@ app.whenReady().then(() => {
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
       const originalStem = sanitizeStem(file.name) ?? basename(file.sourcePath, extname(file.sourcePath))
+      const settings =
+        processing && !isIdentity(processing) ? (file.excludeFades ? withoutFades(processing) : processing) : undefined
+      const tag = settings ? suffixFor(settings) : ''
       let stem = generateExportFilename(originalStem, i, files.length, naming, baseName)
+      if (tag) stem = `${stem}__${tag}`
 
       // Guard against filename collisions (e.g. two source files that share
       // a stem under "keep original", or a re-run into the same folder).
@@ -398,7 +433,8 @@ app.whenReady().then(() => {
           bitDepth,
           oggQuality,
           start: file.start,
-          end: file.end
+          end: file.end,
+          processing: settings
         })
         results.push({ sourcePath: file.sourcePath, destPath, ok: true })
       } catch (err) {
@@ -411,23 +447,88 @@ app.whenReady().then(() => {
     return { canceled: false, destFolder, results }
   })
 
-  ipcMain.handle(
-    'sounds:export-temp',
-    async (_e, params: { sourcePath: string; sampleRate: number; start: number; end: number }) => {
-      const dir = await mkdtemp(join(tmpdir(), 'slip-sound-'))
-      const base = basename(params.sourcePath, extname(params.sourcePath))
-      const destPath = join(dir, `${base}_region.wav`)
-      await exportRegion({
-        sourcePath: params.sourcePath,
-        destPath,
-        format: 'wav',
-        sampleRate: params.sampleRate,
-        start: params.start,
-        end: params.end
-      })
-      return destPath
-    }
-  )
+  // ---- Processing / drag-out renders (specs/processing.md) ----
+  ipcMain.handle('process:capabilities', () => getCapabilities())
+
+  ipcMain.handle('process:render', (_e, req: RenderRequest) => renderProcessed(req))
+
+  // Loudness readout for the Process panel: measured after the pre-gain chain.
+  ipcMain.handle('process:measure', async (_e, req: RenderRequest) => {
+    const measurement = await measureLoudness({
+      sourcePath: req.sourcePath,
+      start: req.start,
+      end: req.end,
+      processing: req.processing
+    })
+    return { measurement, gain: req.processing ? decideGain(req.processing, measurement) : null }
+  })
+
+  // Copies cached renders into the persistent drag folder, then starts the OS drag.
+  ipcMain.on('drag:start-rendered', (event, items: Array<{ path: string; name: string }>) => {
+    if (!Array.isArray(items) || items.length === 0) return
+    const files = stageForDrag(items)
+    event.sender.startDrag({
+      file: files[0],
+      files,
+      icon: nativeImage.createFromPath(icon).resize({ width: 32, height: 32 })
+    })
+  })
+
+  ipcMain.handle('drag:info', () => dragFolderInfo())
+  ipcMain.handle('drag:open-folder', () => shell.openPath(dragFolder().folder))
+  ipcMain.handle('drag:choose-folder', async () => {
+    if (!mainWindow) return dragFolderInfo()
+    const res = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory', 'createDirectory'],
+      title: 'Choose drag export folder',
+      defaultPath: dragFolder().folder
+    })
+    if (!res.canceled && res.filePaths[0]) setDragExportFolderPref(res.filePaths[0])
+    return dragFolderInfo()
+  })
+  ipcMain.handle('drag:reset-folder', () => {
+    setDragExportFolderPref(undefined)
+    return dragFolderInfo()
+  })
+  ipcMain.handle('drag:set-bit-depth', (_e, bits: number) => {
+    if (bits === 16 || bits === 24 || bits === 32) setDragBitDepth(bits)
+    return dragFolderInfo()
+  })
+  ipcMain.handle('drag:clear', async () => {
+    const removed = await clearDragFolder()
+    return { removed, info: dragFolderInfo() }
+  })
+
+  ipcMain.handle('presets:list', () => listPresets())
+  ipcMain.handle('presets:save', (_e, input: { id?: string; name: string; settings: ProcessingEffects }) => {
+    savePreset(input)
+    return listPresets()
+  })
+  ipcMain.handle('presets:delete', (_e, id: string) => {
+    deletePreset(id)
+    return listPresets()
+  })
+  ipcMain.handle('presets:export', async () => {
+    if (!mainWindow) return null
+    const res = await dialog.showSaveDialog(mainWindow, {
+      title: 'Export processing presets',
+      defaultPath: 'slip-sound-presets.json',
+      filters: [{ name: 'Presets', extensions: ['json'] }]
+    })
+    if (res.canceled || !res.filePath) return null
+    return exportPresets(res.filePath)
+  })
+  ipcMain.handle('presets:import', async () => {
+    if (!mainWindow) return null
+    const res = await dialog.showOpenDialog(mainWindow, {
+      title: 'Import processing presets',
+      properties: ['openFile'],
+      filters: [{ name: 'Presets', extensions: ['json'] }]
+    })
+    if (res.canceled || !res.filePaths[0]) return null
+    const added = importPresets(res.filePaths[0])
+    return { added, presets: listPresets() }
+  })
 
   // Audio rendered in the renderer (e.g. a seamless loop) lands in a fresh temp
   // dir so it can go through the normal export pipeline like any source file.
@@ -471,6 +572,11 @@ app.whenReady().then(() => {
     return getAutoCategorizationEnabled()
   })
 
+  try {
+    trimRenderCache()
+  } catch {
+    // cache trimming is best-effort
+  }
   createWindow()
 
   app.on('activate', function () {

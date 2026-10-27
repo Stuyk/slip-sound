@@ -1,7 +1,8 @@
-import { createEffect, createSignal, onCleanup, onMount } from 'solid-js'
+import { createEffect, createSignal, onCleanup, onMount, untrack } from 'solid-js'
 import type { SoundRow } from '../../../preload/index'
 import { Button } from './ui/Button'
 import { IconButton } from './ui/IconButton'
+import { showToast } from './ui/Toast'
 import {
   PlayIcon,
   PauseIcon,
@@ -13,7 +14,8 @@ import {
   RefreshCwIcon,
   GripVerticalIcon,
   ScissorsIcon,
-  RepeatIcon
+  RepeatIcon,
+  SlidersIcon
 } from './icons'
 
 export interface WaveformApi {
@@ -46,6 +48,7 @@ export default function WaveformPreview(props: {
   onExportRequest?: (region: { start: number; end: number } | null) => void
   onSliceRequest?: (region: { start: number; end: number } | null) => void
   onLoopRequest?: (region: { start: number; end: number } | null) => void
+  onEffectsRequest?: (region: { start: number; end: number } | null) => void
 }) {
   let canvas: HTMLCanvasElement | undefined
   let canvasWrap: HTMLDivElement | undefined
@@ -67,10 +70,15 @@ export default function WaveformPreview(props: {
   let dragging = false
   let dragMoved = false
 
-  // Region file dragged out to another app (e.g. Audacity). Re-rendered whenever the region changes.
-  const [dragFilePath, setDragFilePath] = createSignal<string | null>(null)
-  const [dragFileBusy, setDragFileBusy] = createSignal(false)
-  let dragExportToken = 0
+  // Bumped when a region is committed or cleared (not on every mousemove while dragging).
+  const [regionVersion, setRegionVersion] = createSignal(0)
+  const bumpRegion = (): number => setRegionVersion((v) => v + 1)
+
+  // The selected region rendered to a file in the drag folder, ready for drag-out.
+  const [render, setRender] = createSignal<{ path: string; name: string } | null>(null)
+  const [rendering, setRendering] = createSignal(false)
+  let renderToken = 0
+  let renderTimer: ReturnType<typeof setTimeout> | undefined
 
   let audioCtx: AudioContext | undefined
   let currentToken = 0
@@ -268,7 +276,7 @@ export default function WaveformPreview(props: {
       setDuration(0)
       setSelStart(null)
       setSelEnd(null)
-      setDragFilePath(null)
+      bumpRegion()
       cancelAnimationFrame(rafId!)
       if (audioEl) {
         audioEl.pause()
@@ -289,13 +297,12 @@ export default function WaveformPreview(props: {
     setDuration(row.duration ?? 0)
     setSelStart(null)
     setSelEnd(null)
-    setDragFilePath(null)
+    bumpRegion()
     cancelAnimationFrame(rafId!)
 
     if (audioEl) {
       audioEl.pause()
       audioEl.src = window.api.audioUrl(row.path)
-      audioEl.currentTime = 0
       setProgress(0)
       setPlaying(false)
     }
@@ -321,34 +328,52 @@ export default function WaveformPreview(props: {
     return { start, end }
   }
 
-  async function prepareRegionDragFile(region: { start: number; end: number }): Promise<void> {
+  // Region drag-out: the region is written to the persistent drag folder at full
+  // bit depth, so it's prepared as soon as a region is committed.
+  createEffect(() => {
     const row = props.row
-    if (!row || region.end - region.start < 0.01) {
-      setDragFilePath(null)
+    regionVersion()
+    const region = untrack(regionBounds)
+    clearTimeout(renderTimer)
+    const token = ++renderToken
+    if (!row || !region) {
+      setRender(null)
+      setRendering(false)
       return
     }
-    const token = ++dragExportToken
-    setDragFileBusy(true)
-    setDragFilePath(null)
-    try {
-      const path = await window.api.exportRegionToTemp({
-        sourcePath: row.path,
-        sampleRate: row.sample_rate ?? 44100,
-        start: region.start,
-        end: region.end
-      })
-      if (token === dragExportToken) setDragFilePath(path)
-    } catch {
-      if (token === dragExportToken) setDragFilePath(null)
-    } finally {
-      if (token === dragExportToken) setDragFileBusy(false)
+    setRendering(true)
+    renderTimer = setTimeout(async () => {
+      try {
+        const r = await window.api.renderProcessed({
+          sourcePath: row.path,
+          start: region.start,
+          end: region.end
+        })
+        if (token === renderToken) setRender({ path: r.path, name: r.name })
+      } catch (err) {
+        if (token !== renderToken) return
+        setRender(null)
+        showToast({
+          type: 'error',
+          title: 'Could not prepare region',
+          message: err instanceof Error ? err.message.slice(0, 200) : String(err)
+        })
+      } finally {
+        if (token === renderToken) setRendering(false)
+      }
+    }, 150)
+  })
+
+  function onAudioLoaded(): void {
+    if (audioEl && isFinite(audioEl.duration) && audioEl.duration > 0) {
+      setDuration(audioEl.duration)
     }
   }
 
   function onRegionDragStart(e: DragEvent): void {
     e.preventDefault()
-    const path = dragFilePath()
-    if (path) window.api.startDrag([path])
+    const r = render()
+    if (r && !rendering()) window.api.startDragRendered([r])
   }
 
   // Starts playback, snapping into the selected region first if the playhead
@@ -417,7 +442,7 @@ export default function WaveformPreview(props: {
       // plain click: clear any region and seek/play from that point
       setSelStart(null)
       setSelEnd(null)
-      setDragFilePath(null)
+      bumpRegion()
       audioEl.currentTime = endTime
       audioEl.play().catch(() => {})
     } else {
@@ -425,10 +450,10 @@ export default function WaveformPreview(props: {
       const eTime = Math.max(dragStartTime, endTime)
       setSelStart(s)
       setSelEnd(eTime)
+      bumpRegion()
       audioEl.currentTime = s
       audioEl.play().catch(() => {})
       scheduleLoopCheck()
-      prepareRegionDragFile({ start: s, end: eTime })
     }
   }
 
@@ -571,6 +596,7 @@ export default function WaveformPreview(props: {
     cancelAnimationFrame(rafId!)
     clearTimeout(loopTimer)
     clearTimeout(loadDebounceTimer)
+    clearTimeout(renderTimer)
     if (currentAbortController) {
       currentAbortController.abort()
       currentAbortController = null
@@ -610,17 +636,17 @@ export default function WaveformPreview(props: {
               <span
                 id="waveform-region-drag-handle"
                 class="cursor-grab active:cursor-grabbing text-[#007acc] hover:text-white transition-colors flex items-center"
-                draggable={!dragFileBusy() && !!dragFilePath()}
+                draggable={!rendering() && !!render()}
                 onDragStart={onRegionDragStart}
                 title={
-                  dragFileBusy()
+                  rendering()
                     ? 'Preparing region for drag…'
-                    : dragFilePath()
-                      ? 'Drag this region into another app (e.g. Audacity)'
+                    : render()
+                      ? 'Drag this region into another app (e.g. Resolve, Audacity)'
                       : 'Region unavailable to drag'
                 }
               >
-                {dragFileBusy() ? <RefreshCwIcon size={12} class="animate-spin" /> : <GripVerticalIcon size={12} />}
+                {rendering() ? <RefreshCwIcon size={12} class="animate-spin" /> : <GripVerticalIcon size={12} />}
               </span>
               <span id="waveform-region-time-bounds">
                 {formatRegionSec(region()!.start)} – {formatRegionSec(region()!.end)}
@@ -633,13 +659,14 @@ export default function WaveformPreview(props: {
                 onClick={() => {
                   setSelStart(null)
                   setSelEnd(null)
-                  setDragFilePath(null)
+                  bumpRegion()
                 }}
               >
                 <XIcon size={12} />
               </button>
             </span>
           )}
+
         </div>
 
         {/* Volume control slammed to the right on the same line as the play button */}
@@ -689,6 +716,20 @@ export default function WaveformPreview(props: {
         </div>
 
         <div id="waveform-footer-actions" class="flex items-center gap-2">
+        <Button
+          id="waveform-effects-btn"
+          variant="default"
+          size="sm"
+          onClick={() => {
+            audioEl?.pause()
+            props.onEffectsRequest?.(regionBounds())
+          }}
+          disabled={!props.row && (!props.selectedCount || props.selectedCount <= 0)}
+          icon={<SlidersIcon size={13} />}
+          title="Reverse, pitch, speed, fades and loudness, rendered to new files (Ctrl+P)"
+        >
+          <span>Effects…</span>
+        </Button>
         <Button
           id="waveform-slice-btn"
           variant="default"
@@ -745,11 +786,7 @@ export default function WaveformPreview(props: {
         onPlaying={scheduleLoopCheck}
         onSeeked={scheduleLoopCheck}
         onTimeUpdate={onAudioTimeUpdate}
-        onLoadedMetadata={() => {
-          if (audioEl && isFinite(audioEl.duration) && audioEl.duration > 0) {
-            setDuration(audioEl.duration)
-          }
-        }}
+        onLoadedMetadata={onAudioLoaded}
         onEnded={onAudioEnded}
         style={{ display: 'none' }}
       />

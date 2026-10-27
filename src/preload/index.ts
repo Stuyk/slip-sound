@@ -1,5 +1,14 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import type {
+  GainDecision,
+  LoudnessMeasurement,
+  ProcessingEffects,
+  ProcessingPreset,
+  ProcessingSettings
+} from '../shared/processing'
+
+export type { GainDecision, LoudnessMeasurement, ProcessingEffects, ProcessingPreset, ProcessingSettings }
 
 export interface SoundRow {
   id: number
@@ -54,6 +63,7 @@ export interface ExportBatchFile {
   start?: number
   end?: number
   name?: string
+  excludeFades?: boolean
 }
 
 export interface ExportBatchParams {
@@ -64,6 +74,7 @@ export interface ExportBatchParams {
   oggQuality?: number
   naming: NamingMode
   baseName: string
+  processing?: ProcessingSettings
 }
 
 export interface ExportBatchFileResult {
@@ -77,6 +88,40 @@ export interface ExportBatchResult {
   canceled: boolean
   destFolder?: string
   results: ExportBatchFileResult[]
+}
+
+export interface RenderRequest {
+  sourcePath: string
+  start?: number
+  end?: number
+  processing?: ProcessingSettings
+  excludeFades?: boolean
+}
+
+export interface RenderResult {
+  path: string
+  key: string
+  name: string
+  duration: number | null
+  measurement: LoudnessMeasurement | null
+  gain: GainDecision | null
+}
+
+export interface DragExportFile {
+  path: string
+  name: string
+  size: number
+  mtimeMs: number
+}
+
+export interface DragFolderInfo {
+  folder: string
+  isDefault: boolean
+  fellBack: boolean
+  bitDepth: 16 | 24 | 32
+  count: number
+  bytes: number
+  recent: DragExportFile[]
 }
 
 export interface McpStatus {
@@ -150,12 +195,29 @@ const api = {
     ipcRenderer.on('sounds:export-batch-progress', handler)
     return () => ipcRenderer.removeListener('sounds:export-batch-progress', handler)
   },
-  exportRegionToTemp: (params: {
-    sourcePath: string
-    sampleRate: number
-    start: number
-    end: number
-  }): Promise<string> => ipcRenderer.invoke('sounds:export-temp', params),
+  getProcessingCapabilities: (): Promise<{ rubberband: boolean; ebur128: boolean }> =>
+    ipcRenderer.invoke('process:capabilities'),
+  renderProcessed: (req: RenderRequest): Promise<RenderResult> => ipcRenderer.invoke('process:render', req),
+  measureLoudness: (
+    req: RenderRequest
+  ): Promise<{ measurement: LoudnessMeasurement; gain: GainDecision | null }> =>
+    ipcRenderer.invoke('process:measure', req),
+  // Copies cached renders into the drag folder and starts the OS drag.
+  startDragRendered: (items: Array<{ path: string; name: string }>): void =>
+    ipcRenderer.send('drag:start-rendered', items),
+  getDragFolderInfo: (): Promise<DragFolderInfo> => ipcRenderer.invoke('drag:info'),
+  openDragFolder: (): Promise<string> => ipcRenderer.invoke('drag:open-folder'),
+  chooseDragFolder: (): Promise<DragFolderInfo> => ipcRenderer.invoke('drag:choose-folder'),
+  resetDragFolder: (): Promise<DragFolderInfo> => ipcRenderer.invoke('drag:reset-folder'),
+  setDragBitDepth: (bits: 16 | 24 | 32): Promise<DragFolderInfo> => ipcRenderer.invoke('drag:set-bit-depth', bits),
+  clearDragFolder: (): Promise<{ removed: number; info: DragFolderInfo }> => ipcRenderer.invoke('drag:clear'),
+  listPresets: (): Promise<ProcessingPreset[]> => ipcRenderer.invoke('presets:list'),
+  savePreset: (input: { id?: string; name: string; settings: ProcessingEffects }): Promise<ProcessingPreset[]> =>
+    ipcRenderer.invoke('presets:save', input),
+  deletePreset: (id: string): Promise<ProcessingPreset[]> => ipcRenderer.invoke('presets:delete', id),
+  exportPresets: (): Promise<number | null> => ipcRenderer.invoke('presets:export'),
+  importPresets: (): Promise<{ added: number; presets: ProcessingPreset[] } | null> =>
+    ipcRenderer.invoke('presets:import'),
   writeTempWav: (data: Uint8Array, stem: string): Promise<string> =>
     ipcRenderer.invoke('sounds:write-temp-wav', data, stem),
   startDrag: (filePaths: string[]): void => ipcRenderer.send('drag:start', filePaths),

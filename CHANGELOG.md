@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.2.0
+
+### Added
+
+- Effects ([#3](https://github.com/Stuyk/slip-sound/issues/3)): a tool window for quick fixes before a sound goes into your timeline. Open it with **Effects…** under the waveform, File → Effects…, or `Ctrl+P`. It works on the selected sound, its trimmed region, or a whole multi-selection.
+  - Reverse, mono, speed (pitch follows like tape, or keep pitch), pitch shift in semitones that keeps the length, fade in/out with four shapes, and level: change volume, normalize the peak, or normalize loudness (LUFS) with a peak ceiling. Normalizing applies one clean volume change, so dynamics are untouched. A readout shows the sound's loudness and how much the volume will change.
+  - Original and With effects waveforms, one above the other. Play either one, click a waveform to play from there, and press `B` to switch between them without losing your place. For a multi-selection, step through the sounds with `←`/`→`.
+  - Drag the result straight into your editor, or Export. With several sounds selected, both apply the effects to all of them; the drag is ready once every file is rendered (up to 50 sounds).
+  - Presets: nine built-ins (Reverse Swell, Pitch Down Monster, Slow-Mo, Streaming −14 LUFS, Broadcast −23 LUFS, …) in a sidebar, plus save, update, delete, and import/export of your own as JSON.
+  - The Export dialog has an **Effects** picker. It's set to None unless you came from the Effects window, so any export (batch, Slicer slices, Seamless Loop) can use a preset. For loops, fades are skipped so the loop stays seamless. The MCP `export_sound` tool takes a new `processing` option.
+  - Processed files get a suffix describing the effects, e.g. `door_slam__rev_p-3.wav`. Originals are never changed. The main list and waveform always play and drag the original.
+- Drag Exports: dragged-out regions and processed sounds are saved to a persistent folder, `~/Slip Sound/Drag Exports` by default. Editing projects (DaVinci Resolve, Premiere, …) no longer lose them when the OS clears its temp folder. A **Drag Exports** dropdown in the status bar lists recent files and has buttons to open, copy the path, change the folder, set the WAV format, or clear the folder (to the trash).
+
+### Fixed
+
+- Dragging a region out no longer downgrades 24-bit sources to 16-bit. Drag-outs default to 24-bit WAV at the source sample rate.
+
 ## v2.1.0
 
 ### Added

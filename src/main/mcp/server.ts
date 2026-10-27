@@ -14,6 +14,7 @@ import { randomBytes, randomUUID } from 'crypto'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 import { z } from 'zod'
+import { DEFAULT_PROCESSING, LIMITS, type ProcessingSettings } from '../../shared/processing'
 
 export interface McpSoundRow {
   id: number
@@ -57,7 +58,33 @@ export interface McpExportParams {
   oggQuality?: number
   start?: number
   end?: number
+  processing?: ProcessingSettings
 }
+
+// Same fields as the in-app Process panel; anything omitted stays neutral.
+const processingSchema = z
+  .object({
+    reverse: z.boolean().optional(),
+    speed: z.number().min(LIMITS.speed.min).max(LIMITS.speed.max).optional().describe('1 = unchanged'),
+    speedMode: z
+      .enum(['varispeed', 'stretch'])
+      .optional()
+      .describe('varispeed: pitch follows speed (tape); stretch: keep pitch'),
+    pitch: z.number().min(LIMITS.pitch.min).max(LIMITS.pitch.max).optional().describe('Semitones, duration kept'),
+    mono: z.boolean().optional().describe('Average all channels into one'),
+    fadeIn: z.number().min(0).max(LIMITS.fade.max).optional().describe('Seconds'),
+    fadeOut: z.number().min(0).max(LIMITS.fade.max).optional().describe('Seconds'),
+    fadeCurve: z.enum(['linear', 'exp', 'log', 'scurve']).optional(),
+    gainMode: z.enum(['gain', 'peak', 'lufs']).optional().describe('gain: plain dB; peak/lufs: normalize'),
+    gainDb: z.number().min(LIMITS.gainDb.min).max(LIMITS.gainDb.max).optional(),
+    peakDb: z.number().min(LIMITS.peakDb.min).max(LIMITS.peakDb.max).optional().describe('Peak target, dBFS'),
+    lufs: z.number().min(LIMITS.lufs.min).max(LIMITS.lufs.max).optional().describe('Integrated loudness target'),
+    truePeakDb: z.number().min(LIMITS.truePeakDb.min).max(LIMITS.truePeakDb.max).optional().describe('dBTP ceiling')
+  })
+  .optional()
+  .describe(
+    'Optional non-destructive processing applied after trimming, in order: reverse, mono, speed, pitch, fades, gain/normalize'
+  )
 
 export interface McpDeps {
   getLibrary: () => { folder: string; count: number } | null
@@ -318,7 +345,8 @@ function buildMcpServer(deps: McpDeps): McpServer {
       title: 'Export a sound (optionally trimmed) to a new file',
       description:
         'Renders a sound — or a start/end trimmed region of it — to a new WAV or OGG file at the given ' +
-        'destination path, resampled to the given sample rate. Overwrites destPath if it already exists.',
+        'destination path, resampled to the given sample rate, optionally processed (reverse, speed, pitch, ' +
+        'mono, fades, gain or peak/LUFS normalize). Overwrites destPath if it already exists.',
       inputSchema: {
         sourcePath: z.string().describe('Absolute path of the sound to export'),
         destPath: z.string().describe('Absolute destination file path, including extension'),
@@ -327,10 +355,11 @@ function buildMcpServer(deps: McpDeps): McpServer {
         bitDepth: z.enum(['16', '24', '32']).optional().describe('WAV only: PCM bit depth'),
         oggQuality: z.number().min(0).max(10).optional().describe('OGG only: VBR quality, 0-10'),
         start: z.number().optional().describe('Trim start in seconds, omit for start of file'),
-        end: z.number().optional().describe('Trim end in seconds, omit for end of file')
+        end: z.number().optional().describe('Trim end in seconds, omit for end of file'),
+        processing: processingSchema
       }
     },
-    async ({ sourcePath, destPath, format, sampleRate, bitDepth, oggQuality, start, end }) => {
+    async ({ sourcePath, destPath, format, sampleRate, bitDepth, oggQuality, start, end, processing }) => {
       try {
         const result = await deps.exportSound({
           sourcePath,
@@ -340,7 +369,8 @@ function buildMcpServer(deps: McpDeps): McpServer {
           bitDepth: bitDepth ? ((parseInt(bitDepth, 10)) as 16 | 24 | 32) : undefined,
           oggQuality,
           start,
-          end
+          end,
+          processing: processing ? { ...DEFAULT_PROCESSING, ...processing, enabled: true } : undefined
         })
         return { content: [{ type: 'text', text: JSON.stringify({ destPath: result }) }] }
       } catch (err) {

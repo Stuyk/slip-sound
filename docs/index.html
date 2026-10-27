@@ -364,20 +364,21 @@
       <li><b>4</b>Click a category chip to reassign it</li>
       <li><b>5</b>Drag across the waveform to select and loop a region</li>
       <li><b>6</b>Export only that region, or drag it into your DAW</li>
-      <li><b>7</b>Slice it into many files, or turn it into a seamless loop</li>
+      <li><b>7</b>Add effects, slice it into many files, or make a seamless loop</li>
     </ol>
 
     <section id="features">
       <div class="sec-head">
         <h2><span class="n">01</span>Features</h2>
         <div>
-          <p class="lead">Browse, audition, trim, slice, loop, export. The things you do fifty times an hour are one key or one drag.</p>
+          <p class="lead">Browse, audition, trim, add effects, slice, loop, export. The things you do fifty times an hour are one key or one drag.</p>
           <dl class="feats">
             <div><dt>Instant search</dt><dd>Filter by name, channels, duration, favorites, or category. Results update as you type.</dd></div>
             <div><dt>Auto-categorize</dt><dd>Files are tagged on index from their names and paths. Can be turned off in Settings.</dd></div>
             <div><dt>Manual overrides</dt><dd>Reassign or clear any category. Your changes survive reindexes.</dd></div>
             <div><dt>Waveform preview</dt><dd>Click to seek, drag to select, loop the selection. Auto-play as you arrow through the list.</dd></div>
-            <div><dt>Region export</dt><dd>Export just the selected slice, or drag it straight out of the app.</dd></div>
+            <div><dt>Region export</dt><dd>Export just the selected slice, or drag it straight out of the app. Drag-outs land in a persistent folder, so they never go offline in Resolve or Premiere.</dd></div>
+            <div><dt>Effects</dt><dd>Reverse, pitch, speed, fades, mono, volume, peak or LUFS normalize, with before/after waveforms. Drag or export the result; the original is never touched. Save settings as presets.</dd></div>
             <div><dt>Slicer</dt><dd>Cut one file into many. Drag out slices, tap <kbd>M</kbd> while it plays, or auto-detect sounds between silences.</dd></div>
             <div><dt>Seamless loop</dt><dd>Crossfade a region's tail over its head so it repeats with no click. A/B it against the raw loop.</dd></div>
             <div><dt>DAW drag &amp; drop</dt><dd>Drag one file or a whole selection into Reaper, Ableton, FL Studio, Godot, Unity.</dd></div>
@@ -396,7 +397,11 @@
       <div class="sec-head">
         <h2><span class="n">02</span>Tools</h2>
         <div>
-          <p class="lead">Two editors for the jobs a browser usually sends you to a DAW for.</p>
+          <p class="lead">The jobs a browser usually sends you to a DAW for.</p>
+          <figure class="tool-shot">
+            <img src="screenshots/09-processing.png" width="1304" height="584" loading="lazy" alt="The Effects window reversing a bell with a fade-out and peak normalize, showing the original and processed waveforms side by side with presets on the left" />
+            <figcaption><b>Effects</b> <kbd>Ctrl</kbd> <kbd>P</kbd> &middot; Reverse, pitch, speed, fades, mono and volume or LUFS normalize, with the original and the result one above the other. <kbd>B</kbd> flips between them. Drag the result out or export it, for one sound or a whole selection. Presets for the settings you reuse.</figcaption>
+          </figure>
           <figure class="tool-shot">
             <img src="screenshots/07-slicer.png" width="1304" height="665" loading="lazy" alt="The Slicer with ten auto-detected footstep slices, each with its own output name and start/end time" />
             <figcaption><b>Slicer</b> <kbd>Ctrl</kbd> <kbd>K</kbd> &middot; One file of footsteps, hits or one-shots in, a folder of named files out. Auto-detect splits on silence; drag edges to trim, <kbd>M</kbd> to mark by ear, undo anything.</figcaption>
@@ -439,6 +444,7 @@
           <div><dt>Select range</dt><dd><kbd>Shift</kbd> <kbd>Click</kbd></dd></div>
           <div><dt>Slice sound</dt><dd><kbd>Ctrl</kbd> <kbd>K</kbd></dd></div>
           <div><dt>Make seamless loop</dt><dd><kbd>Ctrl</kbd> <kbd>L</kbd></dd></div>
+          <div><dt>Effects</dt><dd><kbd>Ctrl</kbd> <kbd>P</kbd></dd></div>
           <div><dt>Toggle auto-play</dt><dd><kbd>Alt</kbd> <kbd>A</kbd></dd></div>
           <div><dt>Select all matches</dt><dd><kbd>Ctrl</kbd> <kbd>A</kbd></dd></div>
           <div><dt>Help guide</dt><dd><kbd>?</kbd></dd></div>
