@@ -1,0 +1,65 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Slip Sound: fast, local audio sample manager</title>
+<meta name="hypedoc:width" content="960">
+<style>
+  :root { --bg: #ffffff; --fg: #0b0d12; --muted: #5b6475; --accent: #2e7fd9; --accent-bg: #e8f1fb; --line: #e4e7ee; --row: #f5f7fa; --wave: #b9cfe8; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1a1e25; --fg: #e4e7ec; --muted: #8e96a3; --accent: #4b95e6; --accent-bg: #1f3a57; --line: #313844; --row: #222730; --wave: #2f4a6b; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, Roboto, sans-serif; }
+  .card { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 20px; padding: 48px 56px; overflow: hidden; }
+  .top { display: flex; align-items: center; gap: 22px; }
+  .top svg { width: 84px; height: 84px; flex: none; }
+  h1 { margin: 0; font-size: 52px; letter-spacing: -0.03em; line-height: 1; }
+  .tag { margin: 8px 0 0; font-size: 21px; color: var(--muted); }
+  .wave { margin: 34px 0 30px; height: 64px; display: flex; align-items: center; gap: 3px; }
+  .wave i { flex: 1; background: var(--wave); border-radius: 2px; }
+  .wave i.on { background: var(--accent); }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .stat { background: var(--row); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; }
+  .stat b { display: block; font-size: 28px; letter-spacing: -0.02em; color: var(--accent); }
+  .stat span { font-size: 16px; color: var(--muted); }
+  .pills { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .pill { font-size: 16px; padding: 6px 12px; border-radius: 999px; background: var(--accent-bg); color: var(--fg); }
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="top">
+      <svg viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="#18181b"/><path d="M120 200 H168 L240 144 V368 L168 312 H120 C111.163 312 104 304.837 104 296 V216 C104 207.163 111.163 200 120 200 Z" fill="#3b82f6"/><circle cx="304" cy="184" r="14" fill="#f4f4f5"/><rect x="344" y="172" width="96" height="24" rx="12" fill="#f4f4f5"/><circle cx="304" cy="256" r="14" fill="#3b82f6"/><rect x="344" y="244" width="96" height="24" rx="12" fill="#3b82f6"/><circle cx="304" cy="328" r="14" fill="#f4f4f5"/><rect x="344" y="316" width="96" height="24" rx="12" fill="#f4f4f5"/></svg>
+      <div>
+        <h1>Slip Sound</h1>
+        <p class="tag">Fast, brain-dead simple desktop audio sample manager.</p>
+      </div>
+    </div>
+    <div class="wave" id="w"></div>
+    <div class="stats">
+      <div class="stat"><b>170k files</b><span>indexed in ~2 min</span></div>
+      <div class="stat"><b>&lt; 0.2 s</b><span>search, any word order</span></div>
+      <div class="stat"><b>Offline</b><span>no accounts, no tracking</span></div>
+      <div class="stat"><b>Free</b><span>GPL-3.0, no file caps</span></div>
+    </div>
+    <div class="pills">
+      <span class="pill">WAV</span><span class="pill">FLAC</span><span class="pill">MP3</span><span class="pill">OGG</span><span class="pill">AIFF</span><span class="pill">M4A</span>
+      <span class="pill">Windows</span><span class="pill">macOS</span><span class="pill">Linux</span>
+    </div>
+  </div>
+  <script>
+    // Deterministic pseudo-waveform: a decaying hit followed by a softer tail.
+    const w = document.getElementById('w');
+    for (let i = 0; i < 140; i++) {
+      const t = i / 140;
+      const env = Math.exp(-((t - 0.12) ** 2) / 0.004) * 0.9 + Math.exp(-((t - 0.55) ** 2) / 0.02) * 0.55 + 0.08;
+      const h = Math.max(4, Math.round(64 * env * (0.6 + 0.4 * Math.abs(Math.sin(i * 1.7)))));
+      const b = document.createElement('i');
+      b.style.height = h + 'px';
+      if (t > 0.42 && t < 0.7) b.className = 'on';
+      w.appendChild(b);
+    }
+  </script>
+</body>
+</html>

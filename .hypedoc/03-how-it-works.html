@@ -1,0 +1,71 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>How Slip Sound works: one SQLite index per folder</title>
+<meta name="hypedoc:width" content="960">
+<style>
+  :root { --bg: #ffffff; --fg: #0b0d12; --muted: #5b6475; --accent: #2e7fd9; --accent-bg: #e8f1fb; --line: #e4e7ee; --row: #f5f7fa; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1a1e25; --fg: #e4e7ec; --muted: #8e96a3; --accent: #4b95e6; --accent-bg: #1f3a57; --line: #313844; --row: #222730; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, Roboto, sans-serif; }
+  .card { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 20px; padding: 44px 48px; }
+  h2 { margin: 0 0 6px; font-size: 32px; letter-spacing: -0.02em; }
+  .sub { margin: 0 0 30px; font-size: 18px; color: var(--muted); }
+  .flow { display: grid; grid-template-columns: 1fr 36px 1fr 36px 1fr; align-items: stretch; }
+  .box { background: var(--row); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  .box.hl { background: var(--accent-bg); border-color: var(--accent); }
+  .step { font-size: 14px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+  .box h3 { margin: 6px 0 12px; font-size: 20px; }
+  .tree { font-family: ui-monospace, "JetBrains Mono", Menlo, monospace; font-size: 15px; line-height: 1.6; color: var(--muted); white-space: pre; }
+  .tree b { color: var(--accent); font-weight: 600; }
+  .box ul { margin: 0; padding-left: 18px; font-size: 16px; line-height: 1.6; color: var(--muted); }
+  .arrow { display: flex; align-items: center; justify-content: center; }
+  .arrow svg { width: 24px; height: 24px; stroke: var(--muted); fill: none; stroke-width: 2; }
+  .note { margin-top: 22px; font-size: 16px; color: var(--muted); }
+  .note b { color: var(--fg); }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h2>The index travels with the folder</h2>
+    <p class="sub">No central catalog, no cloud. Open a folder once, reopen it instantly forever.</p>
+    <div class="flow">
+      <div class="box">
+        <div class="step">1 · Open</div>
+        <h3>Your sample folder</h3>
+        <div class="tree">SFX/
+├─ Foley/Cloth/
+├─ Doors/
+├─ Rain/
+└─ <b>slip-sound.db</b></div>
+      </div>
+      <div class="arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+      <div class="box hl">
+        <div class="step">2 · Index</div>
+        <h3>Local SQLite</h3>
+        <ul>
+          <li>Recursive scan</li>
+          <li>Duration, channels, rate</li>
+          <li>Auto-categorized</li>
+          <li>Full-text search index</li>
+        </ul>
+      </div>
+      <div class="arrow"><svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+      <div class="box">
+        <div class="step">3 · Use</div>
+        <h3>Find &amp; ship it</h3>
+        <ul>
+          <li>Audition instantly</li>
+          <li>Slice, loop, process</li>
+          <li>Drag into your DAW</li>
+          <li>Export or ask via MCP</li>
+        </ul>
+      </div>
+    </div>
+    <p class="note"><b>Reindex only when files change.</b> Favorites and manual categories live in the same database and survive reindexes.</p>
+  </div>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Slip Sound tools: search, slicer, seamless loop, effects, export, MCP</title>
+<meta name="hypedoc:width" content="960">
+<style>
+  :root { --bg: #ffffff; --fg: #0b0d12; --muted: #5b6475; --accent: #2e7fd9; --accent-bg: #e8f1fb; --line: #e4e7ee; --row: #f5f7fa; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1a1e25; --fg: #e4e7ec; --muted: #8e96a3; --accent: #4b95e6; --accent-bg: #1f3a57; --line: #313844; --row: #222730; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Inter, Roboto, sans-serif; }
+  .card { background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 20px; padding: 44px 48px; }
+  h2 { margin: 0 0 6px; font-size: 32px; letter-spacing: -0.02em; }
+  .sub { margin: 0 0 28px; font-size: 18px; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .t { background: var(--row); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  .h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .h { gap: 10px; }
+  .h b { white-space: nowrap; font-size: 20px; display: flex; align-items: center; gap: 10px; }
+  .h svg { width: 22px; height: 22px; stroke: var(--accent); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  kbd { white-space: nowrap; flex: none; font-family: ui-monospace, "JetBrains Mono", Menlo, monospace; font-size: 14px; padding: 3px 7px; border-radius: 6px; background: var(--accent-bg); color: var(--fg); }
+  .t p { margin: 0; font-size: 16px; line-height: 1.45; color: var(--muted); }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h2>Everything a sound needs, one keystroke away</h2>
+    <p class="sub">Each tool opens in its own window. Originals are never touched.</p>
+    <div class="grid">
+      <div class="t"><div class="h"><b><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search</b><kbd>Ctrl F</kbd></div>
+        <p>Every word matches on its own, across names, categories and folders. "door squeak" finds Squeaky_Door_02.wav.</p></div>
+      <div class="t"><div class="h"><b><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12"/></svg>Slicer</b><kbd>Ctrl K</kbd></div>
+        <p>Cut one file into many. Drag regions, tap M while it plays, or auto-detect hits between silences.</p></div>
+      <div class="t"><div class="h"><b><svg viewBox="0 0 24 24"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a4 4 0 014-4h14"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a4 4 0 01-4 4H3"/></svg>Loop</b><kbd>Ctrl L</kbd></div>
+        <p>Crossfade the tail over the head so it repeats with no click. A/B against the raw loop with B.</p></div>
+      <div class="t"><div class="h"><b><svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>Effects</b><kbd>Ctrl P</kbd></div>
+        <p>Reverse, pitch, speed, fades, mono, volume, peak or LUFS normalize. Before/after waveforms and presets.</p></div>
+      <div class="t"><div class="h"><b><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>Export</b><kbd>Ctrl E</kbd></div>
+        <p>WAV 16/24/32-bit or OGG Vorbis at any sample rate, with numbered or lettered names.</p></div>
+      <div class="t"><div class="h"><b><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12h8M12 8v8"/></svg>MCP Server</b><kbd>opt-in</kbd></div>
+        <p>Let Claude Desktop, Cursor or VS Code search, tag and export your library over localhost.</p></div>
+    </div>
+  </div>
+</body>
+</html>
